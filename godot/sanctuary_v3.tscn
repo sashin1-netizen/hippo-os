@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource path="res://scripts/sanctuary_v3.gd" type="Script" id="1_sanctuary"]
+[ext_resource path="res://scripts/launch_shell.gd" type="Script" id="1_sanctuary"]
 
 [node name="HippoOSSanctuary" type="Node3D"]
 script = ExtResource("1_sanctuary")
