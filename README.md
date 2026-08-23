@@ -1,64 +1,70 @@
 # Hippo OS 🦛
 
-**A personal, offline-first virtual baby pygmy hippo companion built with Unreal Engine 5.8 for Android.**
+**A personal, offline-first virtual baby pygmy hippo companion for Android.**
 
 > The hippo must feel like a living animal, not a menu-driven virtual pet.
 
-## Mission
+## Active build path
 
-Hippo OS is designed around one highly believable original baby pygmy hippo: autonomous behaviour, touch interaction, persistent personality, memory, feeding, sleep, play, water, mud, zoomies and an evolving bond with its owner.
+The active APK build is now **Godot 4.4.1 + GitHub Actions** so the project can be built with **no PC and no paid cloud builder**.
 
-Moo Deng is behavioural inspiration only. The playable animal will have its own identity, model and personality.
+The earlier Unreal Engine 5.8 prototype remains in the repository as a preserved reference, but it is **not** the active Android build path because Unreal requires a build machine with the engine installed.
 
-## First playable
+## What the current Godot APK candidate contains
 
-- autonomous needs and utility-based behaviour
-- persistent personality and memory
-- direct touch/petting input
+- procedural 3D baby pygmy hippo made from engine primitives
+- original hippo identity and persistent personality
+- autonomous utility-based behaviour
+- direct touch petting
+- feeding
 - hunger, energy, affection, curiosity and cleanliness
-- offline progression without punitive mechanics
-- save/load
-- Android-first controls
-- sanctuary environment
-- original high-fidelity baby pygmy hippo character
+- bond and interaction memory
+- offline progression
+- autosave/load
+- generated sanctuary with grass, pond, mud, rocks and vegetation
+- orbit camera
+- mobile HUD
+- Android ARM64 export
+- fully free GitHub-hosted APK workflow
 
-## Architecture
+## Repository layout
 
 ```text
-HippoOS
-├── Config/
-├── Content/
-├── Docs/
-├── Source/HippoOS/
-│   ├── Public/
-│   └── Private/
-├── .github/
-├── .gitattributes
-├── .gitignore
-└── HippoOS.uproject
+hippo-os/
+├── godot/                         # ACTIVE Android app
+│   ├── project.godot
+│   ├── export_presets.cfg
+│   ├── main.tscn
+│   └── scripts/
+├── .github/workflows/
+│   └── build-android-apk.yml      # FREE hosted APK build
+├── Config/                        # Unreal prototype
+├── Source/                        # Unreal prototype
+├── HippoOS.uproject               # Unreal prototype
+└── Docs/
 ```
 
-## Engineering principles
+## Free APK build
 
-1. Simulation state is the source of truth; animation observes it.
-2. The animal continues to have intent when the player does nothing.
-3. Personality modifies decisions instead of merely changing cosmetic labels.
-4. Touch is spatial and physical rather than a PET button.
-5. The animal does not perfectly obey every interaction.
-6. Offline absence never causes death or catastrophic bond loss.
-7. Mobile performance is treated as a feature.
-8. No multiplayer, ads, currencies, backend or account system until the core animal is convincing.
+Open **Actions → Build Android APK → Run workflow**.
 
-## Technology
+GitHub automatically:
 
-- Unreal Engine 5.8
-- C++ + Blueprints
-- StateTree / utility AI hybrid
-- Enhanced Input
-- Android ARM64
-- Vulkan/mobile renderer where supported
-- Git LFS for Unreal binary assets
+1. starts a hosted Ubuntu runner
+2. installs Java 17
+3. installs Android SDK 35
+4. downloads Godot 4.4.1
+5. installs Godot Android export templates
+6. generates a free Android debug signing key
+7. exports `HippoOS.apk`
+8. uploads it as the `HippoOS-Android-APK` artifact
+
+No self-hosted runner is required.
+
+## Product rule
+
+Moo Deng is behavioural inspiration only. Hippo OS uses an original virtual baby pygmy hippo and can later replace the procedural character with a premium custom 3D model without changing the underlying pet systems.
 
 ## Status
 
-**Pre-alpha / foundation.** Core simulation architecture is being established before production character and environment assets are integrated.
+**Playable pre-alpha / free APK pipeline.** The current goal is to prove the complete pet loop on Android first, then upgrade character art, animation, water, mud, sound and interaction quality while keeping the build completely free.
