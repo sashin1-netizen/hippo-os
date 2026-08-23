@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SAVE_VERSION = 3
+const SAVE_VERSION = 4
 
 var animals = {}
 var relationships = {}
@@ -13,7 +13,9 @@ var settings = {
     "show_stats": true,
     "reduced_motion": false,
     "camera_sensitivity": 1.0,
-    "time_mode": "automatic"
+    "text_scale": 1.0,
+    "time_mode": "automatic",
+    "onboarding_complete": false
 }
 var journal = []
 var last_save_unix = 0
@@ -116,6 +118,18 @@ func _migrate(data, version):
                     "interaction_counts": result.get("interaction_counts", {})
                 }
             }
+
+    if version < 4:
+        if not result.has("settings"):
+            result["settings"] = settings.duplicate(true)
+        else:
+            var migrated_settings = result.get("settings", {})
+            if typeof(migrated_settings) == TYPE_DICTIONARY:
+                if not migrated_settings.has("text_scale"):
+                    migrated_settings["text_scale"] = 1.0
+                if not migrated_settings.has("onboarding_complete"):
+                    migrated_settings["onboarding_complete"] = true
+                result["settings"] = migrated_settings
 
     result["save_version"] = SAVE_VERSION
     return result
