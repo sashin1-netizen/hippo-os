@@ -1,6 +1,6 @@
 [application]
 config/name="Hippo OS"
-run/main_scene="res://main.tscn"
+run/main_scene="res://sanctuary_v3.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 boot_splash/show_image=false
 
