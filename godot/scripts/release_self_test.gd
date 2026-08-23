@@ -6,6 +6,7 @@ func _initialize():
     print("HIPPO OS 1.0 RELEASE SELF-TEST")
     _check_project_files()
     _check_runtime_modules()
+    _check_production_models()
     _check_export_presets()
     if failures.is_empty():
         print("SELF-TEST PASS")
@@ -28,6 +29,9 @@ func _check_project_files():
         "res://scripts/species_profiles.gd",
         "res://scripts/sanctuary_state.gd",
         "res://scripts/animal_relationships.gd",
+        "res://assets/models/mochi_pygmy_hippo.glb",
+        "res://assets/models/truffle_pig.glb",
+        "res://assets/models/bao_shar_pei.glb",
         "res://assets/icon.svg",
         "res://assets/splash.png",
         "res://export_presets.cfg"
@@ -62,6 +66,42 @@ func _check_runtime_modules():
         var script_resource = load(script_path)
         if script_resource == null:
             failures.append("Runtime module failed to load: " + script_path)
+
+func _check_production_models():
+    var models = [
+        "res://assets/models/mochi_pygmy_hippo.glb",
+        "res://assets/models/truffle_pig.glb",
+        "res://assets/models/bao_shar_pei.glb"
+    ]
+    for model_path in models:
+        if not FileAccess.file_exists(model_path):
+            failures.append("Production model missing: " + model_path)
+            continue
+        var packed = load(model_path)
+        if packed == null or not packed is PackedScene:
+            failures.append("Production model failed to import: " + model_path)
+            continue
+        var instance = packed.instantiate()
+        if instance == null:
+            failures.append("Production model failed to instantiate: " + model_path)
+            continue
+        var player = _find_animation_player(instance)
+        if player == null:
+            failures.append("Production model has no AnimationPlayer: " + model_path)
+        else:
+            for clip_name in ["idle", "move", "eat", "rest"]:
+                if not player.has_animation(clip_name):
+                    failures.append("Production model missing animation %s: %s" % [clip_name, model_path])
+        instance.free()
+
+func _find_animation_player(node):
+    if node is AnimationPlayer:
+        return node
+    for child in node.get_children():
+        var found = _find_animation_player(child)
+        if found != null:
+            return found
+    return null
 
 func _check_export_presets():
     var config = ConfigFile.new()
