@@ -5,6 +5,7 @@ var failures = []
 func _initialize():
     print("HIPPO OS RELEASE SELF-TEST")
     _check_project_files()
+    _check_runtime_modules()
     _check_export_preset()
     if failures.is_empty():
         print("SELF-TEST PASS")
@@ -17,24 +18,44 @@ func _initialize():
 
 func _check_project_files():
     var required = [
-        "res://main.tscn",
-        "res://scripts/main.gd",
+        "res://sanctuary_v3.tscn",
+        "res://scripts/sanctuary_v3.gd",
+        "res://scripts/animal_actor.gd",
+        "res://scripts/animal_brain.gd",
+        "res://scripts/animal_state.gd",
+        "res://scripts/species_profiles.gd",
+        "res://scripts/sanctuary_state.gd",
+        "res://scripts/animal_relationships.gd",
         "res://export_presets.cfg"
     ]
     for path in required:
         if not FileAccess.file_exists(path):
             failures.append("Missing required file: " + path)
 
-    if FileAccess.file_exists("res://main.tscn"):
-        var packed = load("res://main.tscn")
+    if FileAccess.file_exists("res://sanctuary_v3.tscn"):
+        var packed = load("res://sanctuary_v3.tscn")
         if packed == null:
-            failures.append("main.tscn failed to load")
+            failures.append("sanctuary_v3.tscn failed to load")
         else:
             var instance = packed.instantiate()
             if instance == null:
-                failures.append("main.tscn failed to instantiate")
+                failures.append("sanctuary_v3.tscn failed to instantiate")
             else:
                 instance.queue_free()
+
+func _check_runtime_modules():
+    var scripts = [
+        "res://scripts/animal_actor.gd",
+        "res://scripts/animal_brain.gd",
+        "res://scripts/animal_state.gd",
+        "res://scripts/species_profiles.gd",
+        "res://scripts/sanctuary_state.gd",
+        "res://scripts/animal_relationships.gd"
+    ]
+    for script_path in scripts:
+        var script_resource = load(script_path)
+        if script_resource == null:
+            failures.append("Runtime module failed to load: " + script_path)
 
 func _check_export_preset():
     var config = ConfigFile.new()
