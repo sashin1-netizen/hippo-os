@@ -7,12 +7,14 @@ on:
       - release/android-v1-rc
     paths:
       - 'godot/**'
+      - 'Tools/**'
       - '.github/workflows/build-android-apk.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'godot/**'
+      - 'Tools/**'
       - '.github/workflows/build-android-apk.yml'
 
 permissions:
@@ -53,22 +55,68 @@ jobs:
           git -C /tmp/anyCreature fetch --depth=1 origin "$ANYCREATURE_COMMIT"
           git -C /tmp/anyCreature checkout --detach FETCH_HEAD
           test "$(git -C /tmp/anyCreature rev-parse HEAD)" = "$ANYCREATURE_COMMIT"
-
           mkdir -p godot/assets/models
           node /tmp/anyCreature/engine/cli.js godot/model_specs/hippo.json godot/assets/models/mochi_pygmy_hippo.glb
           node /tmp/anyCreature/engine/cli.js godot/model_specs/pig.json godot/assets/models/truffle_pig.glb
           node /tmp/anyCreature/engine/cli.js godot/model_specs/shar_pei.json godot/assets/models/bao_shar_pei.glb
-
           test -s godot/assets/models/mochi_pygmy_hippo.glb
           test -s godot/assets/models/truffle_pig.glb
           test -s godot/assets/models/bao_shar_pei.glb
           ls -lh godot/assets/models/*.glb
 
-      - name: Upload generated production models
+      - name: Generate original sanctuary foley
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 Tools/generate_release_audio.py
+          test -s godot/assets/audio/hippo_step.wav
+          test -s godot/assets/audio/pig_step.wav
+          test -s godot/assets/audio/dog_step.wav
+          test -s godot/assets/audio/water_splash.wav
+          test -s godot/assets/audio/mud_squelch.wav
+          test -s godot/assets/audio/ui_click.wav
+          test -s godot/assets/audio/sanctuary_ambience.wav
+
+      - name: Download licensed authentic animal recordings
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p godot/assets/audio
+          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Pig%20grunt%20-%20Erdie.ogg' \
+            -o godot/assets/audio/pig_grunt.ogg
+          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Dog.ogg' \
+            -o godot/assets/audio/dog_natural.ogg
+          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ladrido%20perro.ogg' \
+            -o godot/assets/audio/dog_bark.ogg
+
+          HIPPO_PAGE="$(mktemp)"
+          curl --fail --location --retry 4 --user-agent 'Mozilla/5.0 HippoOS-build/1.0' \
+            'https://freesound.org/people/toadie/sounds/194870/' -o "$HIPPO_PAGE"
+          HIPPO_PREVIEW="$(grep -oE 'https://cdn\.freesound\.org/previews/[^"'"'"' ]+\.(mp3|ogg)' "$HIPPO_PAGE" | head -n 1 || true)"
+          if [ -z "$HIPPO_PREVIEW" ]; then
+            HIPPO_PREVIEW="$(grep -oE '//cdn\.freesound\.org/previews/[^"'"'"' ]+\.(mp3|ogg)' "$HIPPO_PAGE" | head -n 1 || true)"
+            [ -n "$HIPPO_PREVIEW" ] && HIPPO_PREVIEW="https:${HIPPO_PREVIEW}"
+          fi
+          test -n "$HIPPO_PREVIEW"
+          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' "$HIPPO_PREVIEW" \
+            -o godot/assets/audio/hippo_grunts.mp3
+
+          test "$(stat -c%s godot/assets/audio/pig_grunt.ogg)" -gt 8000
+          test "$(stat -c%s godot/assets/audio/dog_natural.ogg)" -gt 1000000
+          test "$(stat -c%s godot/assets/audio/dog_bark.ogg)" -gt 30000
+          test "$(stat -c%s godot/assets/audio/hippo_grunts.mp3)" -gt 100000
+          ls -lh godot/assets/audio
+
+      - name: Upload generated production assets
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-production-models
-          path: godot/assets/models/*.glb
+          name: HippoOS-production-assets
+          path: |
+            godot/assets/models/*
+            godot/assets/audio/*
           if-no-files-found: error
           retention-days: 14
 
@@ -102,14 +150,8 @@ jobs:
           set -euxo pipefail
           mkdir -p "$HOME/.android"
           if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android \
+              -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
               -dname 'CN=Android Debug,O=Hippo OS,C=ZA'
           fi
           test -s "$HOME/.android/debug.keystore"
