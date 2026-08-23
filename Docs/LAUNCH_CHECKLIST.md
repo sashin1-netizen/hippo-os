@@ -2,6 +2,14 @@
 
 Branch: `release/android-v1-rc`
 
+## Distribution hold — mandatory
+- [x] Internal APK builds may be generated for CI validation only.
+- [x] No APK, AAB, store package, or download link is to be handed to the user as a release candidate while any launch gate below remains open.
+- [x] The next user-facing APK must be the launch-ready build after all applicable product, content, legal, store, and device-QA gates are green.
+- [x] Placeholder / primitive animal models are explicitly disallowed from the launch build.
+- [x] Placeholder / silent audio systems are explicitly disallowed from the launch build.
+- [x] Store-facing screenshots and marketing assets must be captured from the final production build, not a prototype or internal RC.
+
 ## Build / platform
 - [x] Dedicated release-candidate branch
 - [x] Godot 4.7.2 project target
@@ -76,7 +84,7 @@ Branch: `release/android-v1-rc`
 - [ ] Final support/privacy contact added
 - [ ] Final icon exported to 512x512 PNG
 - [ ] 1280x720 feature graphic from final app art
-- [ ] Four real 1920x1080 screenshots captured from RC
+- [ ] Four real 1920x1080 screenshots captured from final production build
 - [ ] Content rating completed in Play Console
 - [ ] Data safety completed in Play Console
 - [ ] Store category / target audience confirmed
@@ -100,4 +108,4 @@ Branch: `release/android-v1-rc`
 ## Public Google Play gate
 For a new personal Play Console account created after 13 November 2023, production access may require a closed test with at least 12 opted-in testers continuously for 14 days. This is an external store requirement and cannot be completed by source-code changes alone.
 
-The app is not declared production-ready until every applicable unchecked item above is either passed or explicitly removed from version 1.0 scope with a documented reason.
+The app is not declared production-ready until every applicable unchecked item above is either passed or explicitly removed from version 1.0 scope with a documented reason. No user-facing APK is distributed before that condition is met.
