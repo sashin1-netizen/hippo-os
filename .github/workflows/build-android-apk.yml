@@ -19,14 +19,18 @@ jobs:
 
     env:
       GODOT_VERSION: 4.4.1
-      GODOT_RELEASE: stable
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+      GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+      GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -34,18 +38,28 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android packages
+      - name: Install Android packages for Godot 4.4
         shell: bash
         run: |
+          set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+          sdkmanager --sdk_root="$ANDROID_HOME" \
+            'platform-tools' \
+            'build-tools;34.0.0' \
+            'platforms;android-34' \
+            'cmdline-tools;latest' \
+            'cmake;3.10.2.4988404' \
+            'ndk;23.2.8568313'
+          adb version
+          java -version
 
-      - name: Generate free debug signing key
+      - name: Generate debug signing key
         shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p "$HOME/.android"
           if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v \
+            keytool -genkeypair \
               -keystore "$HOME/.android/debug.keystore" \
               -storepass android \
               -alias androiddebugkey \
@@ -55,49 +69,50 @@ jobs:
               -validity 10000 \
               -dname 'CN=Android Debug,O=Hippo OS,C=ZA'
           fi
+          test -s "$HOME/.android/debug.keystore"
 
-      - name: Download Godot
+      - name: Set up Godot 4.4.1 with export templates
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.4.1
+          use-dotnet: false
+          include-templates: true
+
+      - name: Configure Godot Android editor settings
         shell: bash
         run: |
-          curl -L --fail --retry 3 \
-            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_linux.x86_64.zip" \
-            -o godot.zip
-          unzip -q godot.zip
-          mv "Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_linux.x86_64" godot-bin
-          chmod +x godot-bin
-          ./godot-bin --version
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
 
-      - name: Install Godot Android export templates
-        shell: bash
-        run: |
-          curl -L --fail --retry 3 \
-            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_export_templates.tpz" \
-            -o templates.tpz
-          rm -rf /tmp/godot-templates
-          mkdir -p /tmp/godot-templates
-          unzip -q templates.tpz -d /tmp/godot-templates
-          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}"
-          mkdir -p "$TEMPLATE_DIR"
-          cp -R /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
-          test -f "$TEMPLATE_DIR/android_debug.apk"
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+          godot --version
 
-      - name: Configure Godot Android paths
+      - name: Validate Godot project
         shell: bash
+        working-directory: godot
         run: |
-          ./godot-bin --headless --editor --path godot --script res://scripts/ci_setup.gd
-
-      - name: Validate project imports
-        shell: bash
-        run: |
-          ./godot-bin --headless --editor --path godot --quit-after 3
+          set -euxo pipefail
+          test -f project.godot
+          test -f main.tscn
+          test -f export_presets.cfg
+          godot --headless --editor --path . --import --quit
+          godot --headless --path . --quit-after 2
 
       - name: Export debug APK
         shell: bash
+        working-directory: godot
         run: |
-          mkdir -p build
-          ./godot-bin --headless --path godot --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk"
-          test -s build/HippoOS.apk
-          ls -lh build/HippoOS.apk
+          set -euxo pipefail
+          mkdir -p ../build
+          godot --headless --verbose --path . --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          ls -lh "$GITHUB_WORKSPACE/build/HippoOS.apk"
 
       - name: Upload Hippo OS APK
         uses: actions/upload-artifact@v4
