@@ -1,0 +1,50 @@
+name: Repository Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Validate required project files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f HippoOS.uproject
+          test -f Source/HippoOS/HippoOS.Build.cs
+          test -f Source/HippoOS/HippoOS.cpp
+          test -f Config/DefaultGame.ini
+          test -f .gitattributes
+          test -f .gitignore
+
+      - name: Validate project JSON
+        run: python -m json.tool HippoOS.uproject >/dev/null
+
+      - name: Reject generated Unreal directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in Binaries DerivedDataCache Intermediate Saved; do
+            if git ls-files "$dir" "$dir/**" | grep -q .; then
+              echo "Generated Unreal directory is tracked: $dir"
+              exit 1
+            fi
+          done
+
+      - name: Check Unreal assets are configured for LFS
+        shell: bash
+        run: |
+          grep -q '^\*.uasset filter=lfs' .gitattributes
+          grep -q '^\*.umap filter=lfs' .gitattributes
