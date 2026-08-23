@@ -1,9 +1,10 @@
-name: Build Android APK
+name: Hippo OS Android Release Candidate
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - release/android-v1-rc
     paths:
       - 'godot/**'
       - '.github/workflows/build-android-apk.yml'
@@ -12,13 +13,13 @@ permissions:
   contents: read
 
 jobs:
-  build-apk:
-    name: Free Godot Android Build
+  validate-and-build:
+    name: Validate and build Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     env:
-      GODOT_VERSION: 4.4.1
+      GODOT_VERSION: 4.7.2
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
@@ -38,18 +39,18 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android packages for Godot 4.4
+      - name: Install Android 16 SDK packages
         shell: bash
         run: |
           set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --sdk_root="$ANDROID_HOME" \
             'platform-tools' \
-            'build-tools;34.0.0' \
-            'platforms;android-34' \
+            'build-tools;36.0.0' \
+            'platforms;android-36' \
             'cmdline-tools;latest' \
             'cmake;3.10.2.4988404' \
-            'ndk;23.2.8568313'
+            'ndk;28.1.13356709'
           adb version
           java -version
 
@@ -71,10 +72,10 @@ jobs:
           fi
           test -s "$HOME/.android/debug.keystore"
 
-      - name: Set up Godot 4.4.1 with export templates
-        uses: chickensoft-games/setup-godot@v2
+      - name: Set up Godot 4.7.2 with export templates
+        uses: chickensoft-games/setup-godot@v2.4.1
         with:
-          version: 4.4.1
+          version: 4.7.2
           use-dotnet: false
           include-templates: true
 
@@ -90,10 +91,9 @@ jobs:
           export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
-          cat "$HOME/.config/godot/editor_settings-4.tres"
           godot --version
 
-      - name: Validate Godot project
+      - name: Import and parse project
         shell: bash
         working-directory: godot
         run: |
@@ -102,7 +102,20 @@ jobs:
           test -f main.tscn
           test -f export_presets.cfg
           godot --headless --editor --path . --import --quit
-          godot --headless --path . --quit-after 2
+
+      - name: Run release self-test
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --path . --script res://scripts/release_self_test.gd
+
+      - name: Smoke-launch sanctuary
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          timeout 20s godot --headless --path . --quit-after 5
 
       - name: Export debug APK
         shell: bash
@@ -110,14 +123,14 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p ../build
-          godot --headless --verbose --path . --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk"
-          test -s "$GITHUB_WORKSPACE/build/HippoOS.apk"
-          ls -lh "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          godot --headless --verbose --path . --export-debug 'Android APK' "$GITHUB_WORKSPACE/build/HippoOS-1.0.0-rc1.apk"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS-1.0.0-rc1.apk"
+          ls -lh "$GITHUB_WORKSPACE/build/HippoOS-1.0.0-rc1.apk"
 
-      - name: Upload Hippo OS APK
+      - name: Upload release candidate APK
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Android-APK
-          path: build/HippoOS.apk
+          name: HippoOS-1.0.0-rc1-APK
+          path: build/HippoOS-1.0.0-rc1.apk
           if-no-files-found: error
           retention-days: 14
