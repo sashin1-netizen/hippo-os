@@ -62,8 +62,25 @@ def click(t, i, n):
     return e * (0.34 * math.sin(2 * math.pi * 720 * t) + 0.18 * math.sin(2 * math.pi * 1180 * t))
 
 
+def crunch(t, i, n):
+    duration = n / RATE
+    pulse = (int(t * 7.5) % 2) == 0
+    e = max(0.0, env(t, duration, 0.01, 0.12))
+    grit = (random.random() * 2 - 1) * (0.22 if pulse else 0.08)
+    jaw = math.sin(2 * math.pi * 88 * t) * 0.11
+    return e * (grit + jaw)
+
+
+def lap(t, i, n):
+    duration = n / RATE
+    phase = (t * 3.7) % 1.0
+    pulse = math.exp(-phase * 9.0)
+    noise = (random.random() * 2 - 1) * 0.16
+    water = math.sin(2 * math.pi * 135 * t) * 0.06
+    return max(0.0, env(t, duration, 0.01, 0.15)) * pulse * (noise + water)
+
+
 def ambience(t, i, n):
-    # Quiet original sanctuary bed: wind-like noise, water movement and sparse insects.
     wind = (random.random() * 2 - 1) * 0.035
     water = 0.018 * math.sin(2 * math.pi * 0.19 * t) + 0.012 * math.sin(2 * math.pi * 0.41 * t)
     insect_gate = 1.0 if int(t * 1.7) % 19 in (0, 1) else 0.0
@@ -76,5 +93,7 @@ write_wav("pig_step.wav", 0.30, step_wave(78, 0.30, 0.20, 0.54))
 write_wav("dog_step.wav", 0.24, step_wave(105, 0.24, 0.17, 0.42))
 write_wav("water_splash.wav", 0.95, splash)
 write_wav("mud_squelch.wav", 0.75, mud)
+write_wav("eat_crunch.wav", 1.25, crunch)
+write_wav("drink_lap.wav", 1.65, lap)
 write_wav("ui_click.wav", 0.11, click)
 write_wav("sanctuary_ambience.wav", 24.0, ambience)
