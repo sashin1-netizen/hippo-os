@@ -4,6 +4,24 @@ const SpeciesProfiles = preload("res://scripts/species_profiles.gd")
 const AnimalState = preload("res://scripts/animal_state.gd")
 const AnimalBrain = preload("res://scripts/animal_brain.gd")
 
+const MODEL_PATHS = {
+    SpeciesProfiles.PYGMY_HIPPO: "res://assets/models/mochi_pygmy_hippo.glb",
+    SpeciesProfiles.PIG: "res://assets/models/truffle_pig.glb",
+    SpeciesProfiles.SHAR_PEI: "res://assets/models/bao_shar_pei.glb"
+}
+
+const MODEL_Y_OFFSETS = {
+    SpeciesProfiles.PYGMY_HIPPO: -0.76,
+    SpeciesProfiles.PIG: -0.54,
+    SpeciesProfiles.SHAR_PEI: -0.61
+}
+
+const MODEL_SCALES = {
+    SpeciesProfiles.PYGMY_HIPPO: 1.08,
+    SpeciesProfiles.PIG: 0.98,
+    SpeciesProfiles.SHAR_PEI: 1.00
+}
+
 var animal_id = ""
 var species_id = ""
 var profile = {}
@@ -15,12 +33,10 @@ var current_action = "idle"
 var action_timer = 0.0
 var move_target = Vector3.ZERO
 var visual_root
-var head_part
-var ear_left
-var ear_right
-var body_part
+var production_model
+var animation_player
+var active_animation = ""
 var selected = false
-var bob_phase = 0.0
 
 func setup(new_id, new_species_id, new_name, new_home, new_zone_radius, saved_state = {}):
     animal_id = str(new_id)
@@ -78,92 +94,51 @@ func _build_visual():
     visual_root.name = "Visual"
     add_child(visual_root)
 
-    if species_id == SpeciesProfiles.PYGMY_HIPPO:
-        _build_hippo()
-    elif species_id == SpeciesProfiles.PIG:
-        _build_pig()
-    else:
-        _build_shar_pei()
+    var model_path = str(MODEL_PATHS.get(species_id, ""))
+    if model_path.is_empty() or not ResourceLoader.exists(model_path):
+        push_error("Production animal model missing for %s: %s" % [species_id, model_path])
+        return
 
-func _build_hippo():
-    var skin = _material(Color(0.30, 0.22, 0.28), 0.24)
-    var wet_skin = _material(Color(0.38, 0.27, 0.34), 0.16)
-    var muzzle = _material(Color(0.62, 0.38, 0.46), 0.30)
-    var eye = _material(Color(0.012, 0.010, 0.012), 0.08)
+    var packed = load(model_path)
+    if packed == null or not packed is PackedScene:
+        push_error("Production animal model failed to load for %s" % species_id)
+        return
 
-    body_part = _sphere("Body", Vector3(-0.20, 0.38, 0.0), Vector3(1.45, 0.90, 0.88), wet_skin)
-    _sphere("Chest", Vector3(0.48, 0.47, 0.0), Vector3(0.82, 0.78, 0.76), skin)
-    head_part = _sphere("Head", Vector3(1.05, 0.60, 0.0), Vector3(0.82, 0.76, 0.74), skin)
-    _sphere("Muzzle", Vector3(1.62, 0.35, 0.0), Vector3(0.68, 0.45, 0.63), muzzle)
-    ear_left = _sphere("EarL", Vector3(0.91, 1.04, -0.49), Vector3(0.18, 0.23, 0.14), muzzle)
-    ear_right = _sphere("EarR", Vector3(0.91, 1.04, 0.49), Vector3(0.18, 0.23, 0.14), muzzle)
-    _sphere("EyeL", Vector3(1.46, 0.80, -0.42), Vector3(0.11, 0.11, 0.08), eye)
-    _sphere("EyeR", Vector3(1.46, 0.80, 0.42), Vector3(0.11, 0.11, 0.08), eye)
-    _sphere("NostrilL", Vector3(1.94, 0.44, -0.23), Vector3(0.07, 0.045, 0.07), eye)
-    _sphere("NostrilR", Vector3(1.94, 0.44, 0.23), Vector3(0.07, 0.045, 0.07), eye)
-    _four_legs(skin, 0.62, -0.84, 0.48, 0.28, 0.54)
-    _sphere("Tail", Vector3(-1.48, 0.40, 0.0), Vector3(0.16, 0.16, 0.24), skin)
+    production_model = packed.instantiate()
+    production_model.name = "ProductionModel"
+    if production_model is Node3D:
+        production_model.rotation_degrees = Vector3(0.0, 180.0, 0.0)
+        production_model.position.y = float(MODEL_Y_OFFSETS.get(species_id, -0.6))
+        var model_scale = float(MODEL_SCALES.get(species_id, 1.0))
+        production_model.scale = Vector3.ONE * model_scale
+    visual_root.add_child(production_model)
 
-func _build_pig():
-    var skin = _material(Color(0.78, 0.50, 0.48), 0.52)
-    var light_skin = _material(Color(0.90, 0.62, 0.60), 0.48)
-    var eye = _material(Color(0.025, 0.018, 0.014), 0.12)
+    animation_player = _find_animation_player(production_model)
+    if animation_player == null:
+        push_error("Production animal model has no AnimationPlayer: %s" % model_path)
+        return
 
-    body_part = _sphere("Body", Vector3(-0.20, 0.42, 0.0), Vector3(1.20, 0.68, 0.65), skin)
-    head_part = _sphere("Head", Vector3(0.88, 0.57, 0.0), Vector3(0.64, 0.58, 0.55), skin)
-    _sphere("Snout", Vector3(1.40, 0.48, 0.0), Vector3(0.40, 0.28, 0.40), light_skin)
-    _sphere("NostrilL", Vector3(1.61, 0.52, -0.14), Vector3(0.055, 0.035, 0.05), eye)
-    _sphere("NostrilR", Vector3(1.61, 0.52, 0.14), Vector3(0.055, 0.035, 0.05), eye)
-    _sphere("EyeL", Vector3(1.08, 0.75, -0.34), Vector3(0.075, 0.075, 0.055), eye)
-    _sphere("EyeR", Vector3(1.08, 0.75, 0.34), Vector3(0.075, 0.075, 0.055), eye)
-    ear_left = _sphere("EarL", Vector3(0.72, 1.00, -0.38), Vector3(0.17, 0.27, 0.12), skin)
-    ear_right = _sphere("EarR", Vector3(0.72, 1.00, 0.38), Vector3(0.17, 0.27, 0.12), skin)
-    _four_legs(skin, 0.48, -0.75, 0.38, 0.21, 0.50)
-    _sphere("TailBase", Vector3(-1.27, 0.58, 0.0), Vector3(0.15, 0.12, 0.12), skin)
-    _sphere("TailTip", Vector3(-1.40, 0.70, 0.10), Vector3(0.11, 0.11, 0.11), skin)
+    for required_clip in ["idle", "move", "eat", "rest"]:
+        if not animation_player.has_animation(required_clip):
+            push_error("Production model %s is missing animation: %s" % [species_id, required_clip])
+    _play_animation("idle")
 
-func _build_shar_pei():
-    var coat = _material(Color(0.62, 0.40, 0.22), 0.76)
-    var muzzle = _material(Color(0.50, 0.31, 0.20), 0.70)
-    var dark = _material(Color(0.045, 0.032, 0.025), 0.30)
+func _find_animation_player(node):
+    if node is AnimationPlayer:
+        return node
+    for child in node.get_children():
+        var found = _find_animation_player(child)
+        if found != null:
+            return found
+    return null
 
-    body_part = _sphere("Body", Vector3(-0.18, 0.55, 0.0), Vector3(1.05, 0.70, 0.62), coat)
-    _sphere("Shoulders", Vector3(0.38, 0.66, 0.0), Vector3(0.68, 0.72, 0.64), coat)
-    head_part = _sphere("Head", Vector3(0.90, 0.88, 0.0), Vector3(0.64, 0.62, 0.60), coat)
-    _sphere("HippoMuzzle", Vector3(1.40, 0.72, 0.0), Vector3(0.49, 0.34, 0.46), muzzle)
-    _sphere("Nose", Vector3(1.66, 0.76, 0.0), Vector3(0.18, 0.13, 0.20), dark)
-    _sphere("EyeL", Vector3(1.12, 1.02, -0.34), Vector3(0.07, 0.07, 0.055), dark)
-    _sphere("EyeR", Vector3(1.12, 1.02, 0.34), Vector3(0.07, 0.07, 0.055), dark)
-    ear_left = _sphere("EarL", Vector3(0.72, 1.35, -0.36), Vector3(0.18, 0.22, 0.10), coat)
-    ear_right = _sphere("EarR", Vector3(0.72, 1.35, 0.36), Vector3(0.18, 0.22, 0.10), coat)
-    _four_legs(coat, 0.48, -0.63, 0.40, 0.22, 0.63)
-    _sphere("TailBase", Vector3(-1.12, 0.85, 0.0), Vector3(0.18, 0.22, 0.18), coat)
-    _sphere("TailCurl", Vector3(-1.28, 1.05, 0.12), Vector3(0.16, 0.16, 0.16), coat)
-
-func _four_legs(material, front_x, rear_x, z_value, leg_radius, leg_height):
-    _sphere("LegFL", Vector3(front_x, -0.02, -z_value), Vector3(leg_radius, leg_height, leg_radius), material)
-    _sphere("LegFR", Vector3(front_x, -0.02, z_value), Vector3(leg_radius, leg_height, leg_radius), material)
-    _sphere("LegRL", Vector3(rear_x, -0.02, -z_value), Vector3(leg_radius, leg_height, leg_radius), material)
-    _sphere("LegRR", Vector3(rear_x, -0.02, z_value), Vector3(leg_radius, leg_height, leg_radius), material)
-
-func _sphere(part_name, local_position, local_scale, material):
-    var mesh_instance = MeshInstance3D.new()
-    mesh_instance.name = part_name
-    var sphere = SphereMesh.new()
-    sphere.radius = 0.5
-    sphere.height = 1.0
-    mesh_instance.mesh = sphere
-    mesh_instance.position = local_position
-    mesh_instance.scale = local_scale
-    mesh_instance.material_override = material
-    visual_root.add_child(mesh_instance)
-    return mesh_instance
-
-func _material(color, roughness):
-    var material = StandardMaterial3D.new()
-    material.albedo_color = color
-    material.roughness = roughness
-    return material
+func _play_animation(clip_name):
+    if animation_player == null or active_animation == clip_name:
+        return
+    if not animation_player.has_animation(clip_name):
+        return
+    animation_player.play(clip_name, 0.18)
+    active_animation = clip_name
 
 func _choose_next_action():
     if state == null or brain == null:
@@ -231,26 +206,18 @@ func _update_motion(delta):
 func _animate(delta):
     if visual_root == null:
         return
-    bob_phase += delta
-    var moving = Vector2(velocity.x, velocity.z).length() > 0.08
-    var breathing = sin(bob_phase * 2.0) * 0.018
-    var step_bob = sin(bob_phase * 8.0) * 0.025 if moving else 0.0
-    visual_root.position.y = breathing + step_bob
 
-    if ear_left != null and ear_right != null:
-        var flick = sin(bob_phase * 5.0 + float(animal_id.length())) * 0.10
-        ear_left.rotation.z = flick
-        ear_right.rotation.z = -flick
+    var is_moving = Vector2(velocity.x, velocity.z).length() > 0.08
+    var desired_clip = "idle"
+    if is_moving:
+        desired_clip = "move"
+    elif current_action in ["eat", "forage", "root"]:
+        desired_clip = "eat"
+    elif current_action in ["rest", "sleep", "rest_near_owner"]:
+        desired_clip = "rest"
+    _play_animation(desired_clip)
 
-    if head_part != null:
-        if current_action in ["root", "forage"]:
-            head_part.rotation.z = sin(bob_phase * 4.0) * 0.10
-        elif current_action in ["observe", "investigate"]:
-            head_part.rotation.y = sin(bob_phase * 1.4) * 0.10
-        else:
-            head_part.rotation = head_part.rotation.lerp(Vector3.ZERO, min(delta * 4.0, 1.0))
-
-    var selection_scale = 1.035 if selected else 1.0
+    var selection_scale = 1.025 if selected else 1.0
     visual_root.scale = visual_root.scale.lerp(Vector3.ONE * selection_scale, min(delta * 5.0, 1.0))
 
 func set_selected(value):
@@ -259,8 +226,8 @@ func set_selected(value):
 func feed(food_id = "balanced_feed"):
     state.apply_food(food_id, 0.24, 0.75)
     brain.register_owner_interaction("feed", true)
-    current_action = "approach_owner"
-    action_timer = 3.0
+    current_action = "eat"
+    action_timer = 2.4
 
 func pet(region = "forehead"):
     var touch_preferences = profile.get("touch_preferences", {})
@@ -313,6 +280,8 @@ func status_line():
         return "%s is resting nearby" % state.animal_name
     if current_action == "forage":
         return "%s is looking for something to eat" % state.animal_name
+    if current_action == "eat":
+        return "%s is eating" % state.animal_name
     if current_action == "play" or current_action == "zoomies":
         return "%s is feeling playful" % state.animal_name
     if current_action == "wallow":
