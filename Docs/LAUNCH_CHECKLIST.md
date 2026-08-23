@@ -5,12 +5,18 @@ Branch: `release/android-v1-rc`
 ## Build / platform
 - [x] Dedicated release-candidate branch
 - [x] Godot 4.7.2 project target
-- [x] Android 16 / API 36 export target
+- [x] Google Play AAB targets Android 16 / API 36
 - [x] ARM64 APK preset
 - [x] Google Play AAB preset scaffold
 - [x] Android CI import/parser/smoke-test workflow
-- [x] App icon and splash assets
-- [ ] CI APK artifact confirmed green
+- [x] Android ETC2/ASTC texture import enabled
+- [x] Android-compatible PNG boot splash
+- [x] App icon and branded startup assets
+- [x] CI APK artifact confirmed green — run `32673021892`
+- [x] Godot import/parser gate passed
+- [x] Release self-test passed
+- [x] Sanctuary headless smoke-launch passed
+- [x] Standalone APK export passed
 - [ ] Release signing key configured outside repository
 - [ ] Release AAB exported and validated in Play Console
 
@@ -28,9 +34,11 @@ Branch: `release/android-v1-rc`
 - [x] Dynamic day/night presentation
 - [x] Android background / close saving
 - [x] Corrupt-save recovery
-- [ ] Destructive reset flow with confirmation
-- [ ] Accessibility text-size control
-- [ ] Final About / Privacy screen in app
+- [x] First-run onboarding
+- [x] Destructive reset flow with confirmation
+- [x] Accessibility text-size control
+- [x] About / Privacy screen in app
+- [x] Version display
 
 ## Production animal quality
 - [ ] Original production-quality baby pygmy hippo model
