@@ -1,0 +1,32 @@
+# Unreal generated
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/Android/src/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.suo
+*.VC.db
+*.opensdf
+*.sdf
+*.xcodeproj
+*.xcworkspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+*.apk
+*.aab
+*.ipa
+
+# Local secrets
+.env
+.env.*
+!.env.example
