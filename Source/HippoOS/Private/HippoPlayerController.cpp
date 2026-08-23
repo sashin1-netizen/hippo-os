@@ -3,6 +3,7 @@
 #include "HippoCharacter.h"
 #include "HippoCameraPawn.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 
 AHippoPlayerController::AHippoPlayerController()
 {
@@ -36,6 +37,23 @@ void AHippoPlayerController::TouchPressed(ETouchIndex::Type FingerIndex, FVector
     bool bPressed = false;
     GetInputTouchState(FingerIndex, X, Y, bPressed);
     if (!bPressed) return;
+
+    int32 ViewX = 0;
+    int32 ViewY = 0;
+    GetViewportSize(ViewX, ViewY);
+
+    if (ViewX > 0 && ViewY > 0 && X <= ViewX * 0.20f && Y >= ViewY * 0.76f)
+    {
+        for (TActorIterator<AHippoCharacter> It(GetWorld()); It; ++It)
+        {
+            It->ReceiveFood(0.28f);
+            break;
+        }
+        bTouchActive = false;
+        bPetMode = false;
+        ActiveHippo = nullptr;
+        return;
+    }
 
     bTouchActive = true;
     ActiveFinger = FingerIndex;
