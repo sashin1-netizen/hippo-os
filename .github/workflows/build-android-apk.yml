@@ -2,57 +2,107 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-    inputs:
-      configuration:
-        description: Unreal build configuration
-        required: true
-        default: Development
-        type: choice
-        options:
-          - Development
-          - Shipping
+  push:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - '.github/workflows/build-android-apk.yml'
 
 permissions:
   contents: read
 
-env:
-  UE_ENGINE_ROOT: C:\Program Files\Epic Games\UE_5.8
-
 jobs:
   build-apk:
-    runs-on: [self-hosted, windows, unreal-5.8, android]
-    timeout-minutes: 120
+    name: Free Godot Android Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      GODOT_VERSION: 4.4.1
+      GODOT_RELEASE: stable
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
-          lfs: true
+          distribution: temurin
+          java-version: '17'
 
-      - name: Verify Unreal and Android toolchain
-        shell: powershell
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        shell: bash
         run: |
-          $uat = Join-Path $env:UE_ENGINE_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
-          if (!(Test-Path $uat)) { throw "Unreal Automation Tool missing: $uat" }
-          if (!(Get-Command adb -ErrorAction SilentlyContinue)) { throw 'adb is not available on PATH' }
-          & adb version
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
 
-      - name: Build Android APK
-        shell: powershell
+      - name: Generate free debug signing key
+        shell: bash
         run: |
-          .\Scripts\Build-Android.ps1 -EngineRoot "$env:UE_ENGINE_ROOT" -Configuration "${{ inputs.configuration }}"
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname 'CN=Android Debug,O=Hippo OS,C=ZA'
+          fi
 
-      - name: Collect APK
-        shell: powershell
+      - name: Download Godot
+        shell: bash
         run: |
-          $apks = Get-ChildItem .\Artifacts\Android -Filter *.apk -Recurse
-          if (!$apks) { throw 'No APK found after build' }
-          $apks | ForEach-Object { Write-Host $_.FullName }
+          curl -L --fail --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_linux.x86_64.zip" \
+            -o godot.zip
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_linux.x86_64" godot-bin
+          chmod +x godot-bin
+          ./godot-bin --version
 
-      - name: Upload APK artifact
+      - name: Install Godot Android export templates
+        shell: bash
+        run: |
+          curl -L --fail --retry 3 \
+            "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_RELEASE}/Godot_v${GODOT_VERSION}-${GODOT_RELEASE}_export_templates.tpz" \
+            -o templates.tpz
+          rm -rf /tmp/godot-templates
+          mkdir -p /tmp/godot-templates
+          unzip -q templates.tpz -d /tmp/godot-templates
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE}"
+          mkdir -p "$TEMPLATE_DIR"
+          cp -R /tmp/godot-templates/templates/. "$TEMPLATE_DIR/"
+          test -f "$TEMPLATE_DIR/android_debug.apk"
+
+      - name: Configure Godot Android paths
+        shell: bash
+        run: |
+          ./godot-bin --headless --editor --path godot --script res://scripts/ci_setup.gd
+
+      - name: Validate project imports
+        shell: bash
+        run: |
+          ./godot-bin --headless --editor --path godot --quit-after 3
+
+      - name: Export debug APK
+        shell: bash
+        run: |
+          mkdir -p build
+          ./godot-bin --headless --path godot --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          test -s build/HippoOS.apk
+          ls -lh build/HippoOS.apk
+
+      - name: Upload Hippo OS APK
         uses: actions/upload-artifact@v4
         with:
-          name: hippo-os-${{ inputs.configuration }}-apk
-          path: Artifacts/Android/**/*.apk
+          name: HippoOS-Android-APK
+          path: build/HippoOS.apk
           if-no-files-found: error
           retention-days: 14
