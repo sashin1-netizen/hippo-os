@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: Unreal build configuration
+        required: true
+        default: Development
+        type: choice
+        options:
+          - Development
+          - Shipping
+
+permissions:
+  contents: read
+
+env:
+  UE_ENGINE_ROOT: C:\Program Files\Epic Games\UE_5.8
+
+jobs:
+  build-apk:
+    runs-on: [self-hosted, windows, unreal-5.8, android]
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Verify Unreal and Android toolchain
+        shell: powershell
+        run: |
+          $uat = Join-Path $env:UE_ENGINE_ROOT 'Engine\Build\BatchFiles\RunUAT.bat'
+          if (!(Test-Path $uat)) { throw "Unreal Automation Tool missing: $uat" }
+          if (!(Get-Command adb -ErrorAction SilentlyContinue)) { throw 'adb is not available on PATH' }
+          & adb version
+
+      - name: Build Android APK
+        shell: powershell
+        run: |
+          .\Scripts\Build-Android.ps1 -EngineRoot "$env:UE_ENGINE_ROOT" -Configuration "${{ inputs.configuration }}"
+
+      - name: Collect APK
+        shell: powershell
+        run: |
+          $apks = Get-ChildItem .\Artifacts\Android -Filter *.apk -Recurse
+          if (!$apks) { throw 'No APK found after build' }
+          $apks | ForEach-Object { Write-Host $_.FullName }
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hippo-os-${{ inputs.configuration }}-apk
+          path: Artifacts/Android/**/*.apk
+          if-no-files-found: error
+          retention-days: 14
