@@ -29,7 +29,7 @@ func _check_project_files():
         "res://scripts/sanctuary_state.gd",
         "res://scripts/animal_relationships.gd",
         "res://assets/icon.svg",
-        "res://assets/splash.svg",
+        "res://assets/splash.png",
         "res://export_presets.cfg"
     ]
     for path in required:
@@ -73,8 +73,8 @@ func _check_export_presets():
     var apk_name = str(config.get_value("preset.0", "name", ""))
     var apk_platform = str(config.get_value("preset.0", "platform", ""))
     var apk_package = str(config.get_value("preset.0.options", "package/unique_name", ""))
-    var apk_target = int(config.get_value("preset.0.options", "gradle_build/target_sdk", "0"))
     var apk_version = str(config.get_value("preset.0.options", "version/name", ""))
+    var apk_uses_gradle = bool(config.get_value("preset.0.options", "gradle_build/use_gradle_build", true))
 
     if apk_name != "Android APK":
         failures.append("Android APK export preset missing")
@@ -82,20 +82,23 @@ func _check_export_presets():
         failures.append("APK export platform is not Android")
     if apk_package != "com.sashin.hippoos":
         failures.append("Unexpected Android package name")
-    if apk_target < 36:
-        failures.append("Android target SDK must be API 36 or newer")
     if apk_version.is_empty():
         failures.append("Android version name missing")
+    if apk_uses_gradle:
+        failures.append("Device-test APK preset should use the standard non-Gradle exporter")
 
     var aab_name = str(config.get_value("preset.1", "name", ""))
     var aab_platform = str(config.get_value("preset.1", "platform", ""))
     var aab_format = int(config.get_value("preset.1.options", "gradle_build/export_format", -1))
     var aab_target = int(config.get_value("preset.1.options", "gradle_build/target_sdk", "0"))
+    var aab_uses_gradle = bool(config.get_value("preset.1.options", "gradle_build/use_gradle_build", false))
 
     if aab_name != "Google Play AAB":
         failures.append("Google Play AAB export preset missing")
     if aab_platform != "Android":
         failures.append("AAB export platform is not Android")
+    if not aab_uses_gradle:
+        failures.append("Google Play AAB preset must use Gradle")
     if aab_format != 1:
         failures.append("Google Play preset is not configured as AAB")
     if aab_target < 36:
