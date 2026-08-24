@@ -67,7 +67,7 @@ jobs:
           test -s godot/assets/audio/water_splash.wav
           test -s godot/assets/audio/mud_squelch.wav
 
-      - name: Download licensed animal recordings
+      - name: Download and normalize licensed animal recordings
         shell: bash
         run: |
           set -euxo pipefail
@@ -80,7 +80,9 @@ jobs:
             -o godot/assets/audio/dog_natural.ogg
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ladrido%20perro.ogg' \
-            -o godot/assets/audio/dog_bark.ogg
+            -o /tmp/dog_bark_source.ogg
+          ffmpeg -hide_banner -loglevel error -y -i /tmp/dog_bark_source.ogg \
+            -vn -c:a libvorbis -q:a 5 godot/assets/audio/dog_bark.ogg
           HIPPO_PAGE="$(mktemp)"
           curl --fail --location --retry 4 --user-agent 'Mozilla/5.0 HippoOS-build/1.0' \
             'https://freesound.org/people/toadie/sounds/194870/' -o "$HIPPO_PAGE"
@@ -92,6 +94,7 @@ jobs:
           test -n "$HIPPO_PREVIEW"
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' "$HIPPO_PREVIEW" \
             -o godot/assets/audio/hippo_grunts.mp3
+          test -s godot/assets/audio/dog_bark.ogg
 
       - name: Set up Godot 4.7.2
         uses: chickensoft-games/setup-godot@v2.4.1
@@ -104,8 +107,12 @@ jobs:
         working-directory: godot
         run: |
           set -euxo pipefail
-          godot --headless --editor --path . --import --quit
-          timeout 20s godot --headless --path . --quit-after 5
+          godot --headless --editor --path . --import --quit 2>&1 | tee /tmp/godot-import.log
+          ! grep -q 'SCRIPT ERROR' /tmp/godot-import.log
+          ! grep -q 'Error importing' /tmp/godot-import.log
+          timeout 20s godot --headless --path . --quit-after 5 2>&1 | tee /tmp/godot-smoke.log
+          ! grep -q 'SCRIPT ERROR' /tmp/godot-smoke.log
+          ! grep -q 'Failed loading resource' /tmp/godot-smoke.log
 
       - name: Set up Flutter 3.44.7
         uses: subosito/flutter-action@v2
@@ -116,7 +123,9 @@ jobs:
 
       - name: Generate Flutter Android scaffold
         working-directory: flutter_app
-        run: flutter create --platforms=android --project-name hippo_os --org com.sashin .
+        run: |
+          flutter create --platforms=android --project-name hippo_os --org com.sashin .
+          rm -f test/widget_test.dart
 
       - name: Apply hybrid native host
         shell: bash
@@ -149,6 +158,10 @@ jobs:
       - name: Analyze Flutter shell
         working-directory: flutter_app
         run: flutter analyze
+
+      - name: Run Flutter contract tests
+        working-directory: flutter_app
+        run: flutter test test/sanctuary_contract_test.dart
 
       - name: Build internal hybrid APK
         working-directory: flutter_app
