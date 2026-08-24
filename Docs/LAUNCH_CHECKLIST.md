@@ -1,13 +1,14 @@
-# Hippo OS 1.0 Launch Checklist
+# Hippo OS 1.0 Personal Launch Checklist
 
 Branch: `release/flutter-4k-v1`
 
-## Distribution hold — mandatory
+## Release definition — mandatory
+- [x] Hippo OS 1.0 is for personal/private use, not public app-store distribution.
 - [x] Internal APK builds may be generated for CI validation only.
-- [x] No APK, AAB, store package, or download link is handed to the user while any launch gate remains open.
-- [x] The next user-facing APK must be the launch-ready build.
+- [x] No APK or download link is handed to the user while any personal-launch gate remains open.
+- [x] The next user-facing APK must be the finished personal launch build.
 - [x] Placeholder animal geometry and silent placeholder audio are forbidden.
-- [x] Final screenshots must come from the final production hybrid build.
+- [x] Google Play closed testing, Play Console production access, AAB publication, store listing, content rating and Data Safety are out of scope for 1.0 personal launch.
 
 ## Production architecture
 - [x] Flutter 3.44.7 selected as the user-facing application shell.
@@ -18,8 +19,8 @@ Branch: `release/flutter-4k-v1`
 - [x] Android 16 / API 36 target retained.
 - [x] Hybrid CI validates animal generation, audio generation, Godot parse/smoke, Flutter analysis/tests and Android build.
 - [ ] Hybrid CI fully green on current release head.
-- [ ] Release signing key configured outside repository.
-- [ ] Release AAB exported and validated in Play Console.
+- [ ] Final personal release APK is signed with a stable private signing key.
+- [ ] Final signed APK installs as an update over the previous personal build where applicable.
 
 ## Camera / POV
 - [x] Cinematic view.
@@ -37,7 +38,7 @@ Branch: `release/flutter-4k-v1`
 - [x] Sync occurs on resume.
 - [x] Sync refreshes once per minute while active.
 - [x] Sanctuary day/night presentation uses bridged local time with device-local fallback.
-- [ ] Travel/timezone-change QA completed on-device.
+- [ ] Timezone-change QA completed on-device.
 
 ## 4K quality gate
 - [x] 4K launch contract documented in `Docs/FLUTTER_4K_LAUNCH_SPEC.md`.
@@ -46,8 +47,8 @@ Branch: `release/flutter-4k-v1`
 - [x] Mobile texture master ceiling set at 4096 × 4096 where appropriate.
 - [ ] 3840 × 2160 capture/photo path validated.
 - [ ] Close Bodycam framing passes asset-quality review at 4K capture resolution.
-- [ ] 4K-capable runtime performance verified on appropriate hardware.
-- [ ] Dynamic performance fallback verified without visibly degrading launch-quality assets.
+- [ ] 4K-capable runtime performance verified on appropriate hardware when available.
+- [ ] Dynamic performance fallback verified without visibly degrading launch-quality assets on the target phone.
 
 ## Core sanctuary
 - [x] Pygmy hippo, pig and Chinese Shar-Pei are the locked animal roster.
@@ -60,21 +61,25 @@ Branch: `release/flutter-4k-v1`
 - [x] Independent audio buses.
 - [x] Haptics and reduced-motion settings.
 - [x] Save/background/corrupt-save handling.
+- [x] Living-world/customisation state foundation.
 - [ ] Journal UI fully migrated to Flutter.
 - [ ] Settings/rename UI fully migrated to Flutter.
 - [ ] First-run onboarding fully migrated to Flutter.
 - [ ] About/Privacy/Credits fully migrated to Flutter.
+- [ ] Full customisation UI is persisted and restored correctly.
 
-## Animals / animation
+## Animals / animation / living behaviour
 - [x] Original Hippo OS model specifications for Mochi, Truffle and Bao.
 - [x] Strict procedural model compiler/geometry validation in CI.
 - [x] 31-joint skinned rigs generated for all three animals.
 - [x] Idle/move/eat/rest base animation clips generated for all three animals.
+- [x] Persistent memory, preferences, relationship/bond state and autonomous decisions.
 - [ ] Final visual art-direction review in actual Flutter hybrid build.
 - [ ] Species-specific signature animation coverage.
 - [ ] Body-region interaction animation.
 - [ ] Wetness/mud presentation for hippo and pig.
 - [ ] Final mobile material/PBR-quality review.
+- [ ] Custom animal appearance and baseline temperament changes visibly apply without erasing learned memory.
 
 ## Audio
 - [x] Original sanctuary ambience and interaction foley generation.
@@ -85,39 +90,39 @@ Branch: `release/flutter-4k-v1`
 - [ ] All audio imports pass the current hybrid gate without warnings/errors.
 - [ ] Audio and spatialization verified on-device.
 
-## Environment
+## Living environment
 - [x] Separate habitat zones.
 - [x] Pond, mud, vegetation and dynamic lighting foundation.
+- [x] Real-time living-world state for wind, humidity, cloudiness, dampness, water activity and world age.
+- [x] Customisation architecture for vegetation, water, mud, light warmth, weather, wind and world motion.
 - [ ] Production water shader/ripple pass.
 - [ ] Splash particles.
 - [ ] Mud interaction/tracks.
 - [ ] Production foliage/rocks/shelter enrichment.
 - [ ] Camera collision/occlusion pass.
 - [ ] Final day/night readability review at real device time.
+- [ ] Living-world customisation visibly changes the rendered sanctuary in real time.
 
-## Store/legal
-- [x] Privacy-policy draft.
-- [x] Play listing draft.
-- [x] Asset provenance register.
-- [ ] Final support/privacy contact added.
-- [ ] Final 512 × 512 Play icon exported.
-- [ ] Google Play 1024 × 500 feature graphic exported from master artwork.
-- [ ] Four final production screenshots captured, up to 3840 px on the longest side.
-- [ ] Content rating completed in Play Console.
-- [ ] Data safety completed in Play Console.
-- [ ] Store category/target audience confirmed.
+## Personal-use packaging/legal
+- [x] Asset provenance register retained.
+- [x] Credits/license data retained even for private use.
+- [x] Privacy behavior remains local-first/no account/no analytics unless intentionally changed later.
+- [ ] Final launcher icon and splash are production quality.
+- [ ] Final APK version name/code locked.
+- [ ] Private signing key backed up securely outside the repository.
+- [ ] Final release APK checksum recorded.
 
-## Physical device QA
+## Physical device QA — mandatory
 - [ ] Flutter hybrid installs without Godot editor.
 - [ ] Launches from home-screen icon.
 - [ ] Embedded Godot view appears correctly behind Flutter UI.
-- [ ] Flutter ↔ Godot camera/action/status bridge passes.
+- [ ] Flutter ↔ Godot camera/action/status/customisation bridge passes.
 - [ ] Cold launch passes 10 times.
 - [ ] Background/foreground passes 10 cycles.
 - [ ] Save survives forced app close.
-- [ ] Settings survive restart.
+- [ ] Settings and customisation survive restart.
 - [ ] All three animals remain selectable after restart.
-- [ ] Feed/pet/rename/journal pass.
+- [ ] Feed/pet/rename/journal/customise pass.
 - [ ] Android back navigation pass.
 - [ ] Landscape lock pass.
 - [ ] No UI overlap/cutoff on target phone.
@@ -127,4 +132,4 @@ Branch: `release/flutter-4k-v1`
 - [ ] Audio/haptics pass.
 - [ ] 30-minute soak test without crash.
 
-The app is not declared launch-ready until every applicable unchecked item is passed or explicitly removed from 1.0 scope with a documented reason. No user-facing APK is distributed before that condition is met.
+Hippo OS is not declared personally launch-ready until every applicable unchecked item above is passed or explicitly removed from 1.0 scope with a documented reason. No user-facing APK is distributed before that condition is met.
