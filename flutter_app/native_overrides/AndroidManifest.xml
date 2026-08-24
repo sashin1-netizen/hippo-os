@@ -4,7 +4,8 @@
     <application
         android:label="Hippo OS Preview"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/hippo_launcher"
+        android:roundIcon="@drawable/hippo_launcher"
         android:hardwareAccelerated="true"
         android:largeHeap="true">
 
