@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="70%">
+      <stop offset="0" stop-color="#17372d"/>
+      <stop offset="1" stop-color="#050d0b"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <circle cx="640" cy="286" r="112" fill="#0d211b" stroke="#b9d7c6" stroke-width="7"/>
+  <ellipse cx="615" cy="298" rx="82" ry="64" fill="#735867"/>
+  <ellipse cx="679" cy="274" rx="61" ry="58" fill="#735867"/>
+  <ellipse cx="708" cy="309" rx="53" ry="35" fill="#a87182"/>
+  <circle cx="694" cy="263" r="8" fill="#050607"/>
+  <circle cx="692" cy="261" r="2.5" fill="#ffffff"/>
+  <text x="640" y="470" text-anchor="middle" font-family="sans-serif" font-size="58" font-weight="700" fill="#edf6f1">HIPPO OS</text>
+  <text x="640" y="523" text-anchor="middle" font-family="sans-serif" font-size="26" letter-spacing="4" fill="#9fc2b0">PRIVATE SANCTUARY</text>
+  <text x="640" y="584" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#7f9f90">A sanctuary. Not a game.</text>
+</svg>
