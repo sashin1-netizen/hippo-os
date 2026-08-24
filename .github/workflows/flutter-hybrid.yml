@@ -201,6 +201,7 @@ jobs:
           test -s "$ASSET_DIR/assets/textures/kloofendal_38d_partly_cloudy_puresky.jpg"
           test -f "$ASSET_DIR/scripts/open_world_controller.gd"
           test -f "$ASSET_DIR/scripts/open_world_environment.gd"
+          test -f "$ASSET_DIR/scripts/environment_collision.gd"
           test -f "$ASSET_DIR/scripts/relationship_runtime.gd"
           test -f "$ASSET_DIR/scripts/animal_surface_effects.gd"
 
@@ -208,7 +209,7 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Analyze Flutter open-world shell
+      - name: Analyze Flutter production open-world shell
         working-directory: flutter_app
         run: flutter analyze
 
@@ -216,20 +217,23 @@ jobs:
         working-directory: flutter_app
         run: flutter test test/sanctuary_contract_test.dart
 
-      - name: Verify open-world Flutter entrypoint
+      - name: Verify production Flutter entrypoint
         shell: bash
         run: |
           set -euxo pipefail
-          grep -q "open_world_app.dart" flutter_app/lib/main.dart
-          grep -q "runOpenWorldApp" flutter_app/lib/main.dart
+          grep -q "production_app.dart" flutter_app/lib/main.dart
+          grep -q "runProductionApp" flutter_app/lib/main.dart
+          grep -q "shared_preferences" flutter_app/pubspec.yaml
+          grep -q "reset_sanctuary" flutter_app/lib/production_app.dart
+          grep -q "reset_sanctuary" godot/scripts/flutter_runtime_overlay.gd
           grep -q "roam:" flutter_app/lib/open_world_app.dart
           grep -q "BODYCAM" flutter_app/lib/open_world_app.dart
 
-      - name: Build phone-sized ARM64 preview APK
+      - name: Build phone-sized ARM64 internal QA APK
         working-directory: flutter_app
         run: flutter build apk --release --split-per-abi --target-platform android-arm64
 
-      - name: Verify ARM64 preview build
+      - name: Verify ARM64 internal QA build
         shell: bash
         run: |
           set -euxo pipefail
@@ -256,7 +260,7 @@ jobs:
           grep -q "package: name='com.sashin.hippoos.preview'" /tmp/hippo-apk-badging.txt
           grep -q "application-label:'Hippo OS Preview'" /tmp/hippo-apk-badging.txt
 
-      - name: Upload phone preview APK for internal QA
+      - name: Upload internal QA APK
         uses: actions/upload-artifact@v4
         with:
           name: HippoOS-OpenWorld-Internal-ARM64
