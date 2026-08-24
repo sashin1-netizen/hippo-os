@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Godot Android APK
+    name: Build signed personal release APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -34,9 +34,9 @@ jobs:
       GODOT_VERSION: 4.7.2
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/hippoos-personal.keystore
-      GODOT_ANDROID_KEYSTORE_DEBUG_USER: hippoospersonal
-      GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: hippoos-personal
+      GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /home/runner/.android/hippoos-personal.keystore
+      GODOT_ANDROID_KEYSTORE_RELEASE_USER: hippoospersonal
+      GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: hippoos-personal
       HIPPOOS_TEST_CERT_SHA256: 3f19983ae8a86f7f7b20fa6be17b69882879c76a747f5d7744a6b063717f1dc2
 
     steps:
@@ -68,18 +68,19 @@ jobs:
           java -version
           "$ANDROID_HOME/build-tools/36.1.0/aapt" version
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -h >/dev/null
 
-      - name: Install stable personal test signing key
+      - name: Install stable personal release signing key
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.android"
-          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
-          test -s "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
+          test -s "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
           keytool -list -v \
-            -keystore "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" \
-            -storepass "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD" \
-            -alias "$GODOT_ANDROID_KEYSTORE_DEBUG_USER" | tee build-key.txt
+            -keystore "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" \
+            -storepass "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" \
+            -alias "$GODOT_ANDROID_KEYSTORE_RELEASE_USER" | tee build-key.txt
           grep -q '3F:19:98:3A:E8:A8:6F:7F:7B:20:FA:6B:E1:7B:69:88:28:79:C7:6A:74:7F:5D:77:44:A6:B0:63:71:7F:1D:C2' build-key.txt
           rm -f build-key.txt
 
@@ -133,15 +134,17 @@ jobs:
           grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
           grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
           grep -q 'DeviceDiagnostics="\*res://scripts/device_diagnostics.gd"' project.godot
-          grep -q 'config/version="0.2.1-personal"' project.godot
+          grep -q 'config/version="0.2.2-personal"' project.godot
           grep -q 'stretch/aspect="expand"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
           grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
           ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
           ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
-          grep -q 'version/code=3' export_presets.cfg
-          grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
+          grep -q 'version/code=4' export_presets.cfg
+          grep -q 'version/name="0.2.2-personal"' export_presets.cfg
+          grep -q 'package/unique_name="com.sashin.hippoos.personal"' export_presets.cfg
           grep -q 'architectures/arm64-v8a=true' export_presets.cfg
+          grep -q 'architectures/x86_64=true' export_presets.cfg
           grep -q 'screen/immersive_mode=true' export_presets.cfg
           grep -q 'screen/edge_to_edge=true' export_presets.cfg
 
@@ -159,50 +162,131 @@ jobs:
           godot --headless --path . --quit-after 3 2>&1 | tee ../build/godot-smoke.log
           fail_on_godot_errors ../build/godot-smoke.log
 
-      - name: Export debug APK with strict log gate
+      - name: Export release APK with strict log gate
         shell: bash
         working-directory: godot
         run: |
           set -euxo pipefail
-          godot --headless --verbose --path . --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export.log"
+          godot --headless --verbose --path . --export-release Android "$GITHUB_WORKSPACE/build/HippoOS-Personal.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export.log"
           if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling' "$GITHUB_WORKSPACE/build/godot-export.log"; then
             echo 'Godot export contained script/autoload failures' >&2
             exit 1
           fi
-          test -s "$GITHUB_WORKSPACE/build/HippoOS.apk"
-          ls -lh "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
+          ls -lh "$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
 
-      - name: Verify APK package, SDK, version and stable signature
+      - name: Verify package, API, release mode, alignment and signature
         shell: bash
         run: |
           set -euxo pipefail
-          APK="$GITHUB_WORKSPACE/build/HippoOS.apk"
+          APK="$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "package: name='com.sashin.hippoos'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "package: name='com.sashin.hippoos.personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "targetSdkVersion:'36'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "versionCode='3'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "versionName='0.2.1-personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "versionCode='4'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "versionName='0.2.2-personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "native-code: 'arm64-v8a' 'x86_64'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          ! grep -q '^application-debuggable$' "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.zipalign.txt"
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.apk.sha256"
 
-      - name: Upload verified build artifact
+      - name: Upload release APK for install test
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Android-APK
+          name: HippoOS-Personal-Release-APK
           path: |
-            build/HippoOS.apk
+            build/HippoOS-Personal.apk
             build/HippoOS.apk.sha256
             build/HippoOS.badging.txt
             build/HippoOS.signature.txt
+            build/HippoOS.zipalign.txt
             build/godot-import.log
             build/godot-smoke.log
             build/godot-export.log
           if-no-files-found: error
           retention-days: 30
 
+  android16-install-test:
+    name: Install on Android 16 emulator
+    needs: build-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Download built APK
+        uses: actions/download-artifact@v4
+        with:
+          name: HippoOS-Personal-Release-APK
+          path: apk
+
+      - name: Enable KVM access
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Boot Android 16 and prove PackageManager install
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euxo pipefail
+            adb wait-for-device
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.build.version.sdk | grep -q '^36$'
+            adb install -r apk/HippoOS-Personal.apk | tee apk/adb-install.txt
+            grep -q '^Success$' apk/adb-install.txt
+            adb shell pm path com.sashin.hippoos.personal | tee apk/adb-package-path.txt
+            grep -q 'package:' apk/adb-package-path.txt
+            adb shell dumpsys package com.sashin.hippoos.personal | tee apk/adb-package.txt
+            grep -q 'versionCode=4' apk/adb-package.txt
+            adb shell monkey -p com.sashin.hippoos.personal -c android.intent.category.LAUNCHER 1
+            sleep 5
+            adb shell pidof com.sashin.hippoos.personal | tee apk/adb-pid.txt
+            test -s apk/adb-pid.txt
+            adb logcat -d -t 300 > apk/adb-logcat.txt
+            if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt; then
+              cat apk/adb-logcat.txt >&2
+              exit 1
+            fi
+
+      - name: Upload Android 16 install evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Android16-Install-Evidence
+          path: |
+            apk/adb-install.txt
+            apk/adb-package-path.txt
+            apk/adb-package.txt
+            apk/adb-pid.txt
+            apk/adb-logcat.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  publish-personal-release:
+    name: Publish verified personal APK
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-apk, android16-install-test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download verified APK
+        uses: actions/download-artifact@v4
+        with:
+          name: HippoOS-Personal-Release-APK
+          path: build
+
       - name: Publish phone-ready APK release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: apk-${{ github.run_number }}
@@ -210,11 +294,12 @@ jobs:
         run: |
           set -euxo pipefail
           gh release create "$RELEASE_TAG" \
-            build/HippoOS.apk \
+            build/HippoOS-Personal.apk \
             build/HippoOS.apk.sha256 \
             build/HippoOS.badging.txt \
             build/HippoOS.signature.txt \
+            build/HippoOS.zipalign.txt \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Hippo OS Android APK · Build ${{ github.run_number }}" \
-            --notes "Verified ARM64 personal-use Android APK built from main with Godot 4.7.2. Version 0.2.1-personal / code 3. Package com.sashin.hippoos. Target Android 16 / API 36. Strict CI rejects GDScript/autoload failures and verifies the stable Hippo OS personal-test signing certificate."
+            --title "Hippo OS 0.2.2 Personal Android APK" \
+            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. ARM64 + x86_64. Strict Godot compile/export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."
