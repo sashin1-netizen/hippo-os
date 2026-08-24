@@ -44,7 +44,11 @@ func _required_runtime_modules():
         "res://scripts/animal_motion_v3.gd",
         "res://scripts/animal_surface_effects.gd",
         "res://scripts/ambient_life.gd",
-        "res://scripts/performance_lod.gd"
+        "res://scripts/performance_lod.gd",
+        "res://scripts/terrain_realism.gd",
+        "res://scripts/foliage_realism.gd",
+        "res://scripts/weather_fx.gd",
+        "res://scripts/interaction_reactions.gd"
     ]
 
 func _check_project_files():
@@ -98,7 +102,11 @@ func _check_open_world_scene_contract():
         "AnimalSurfaceEffects",
         "AmbientLife",
         "EnvironmentSky",
-        "PerformanceLOD"
+        "PerformanceLOD",
+        "TerrainRealism",
+        "FoliageRealism",
+        "WeatherFX",
+        "InteractionReactions"
     ]
     for node_name in required_nodes:
         if not ("name=\"%s\"" % node_name) in scene_text:
