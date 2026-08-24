@@ -41,6 +41,8 @@ uniform float mud_amount = 0.0;
 uniform float pore_scale = 18.0;
 uniform float wrinkle_strength = 0.05;
 uniform float fold_displacement = 0.001;
+uniform float custom_warmth = 0.5;
+uniform float pattern_strength = 0.25;
 varying vec3 local_pos;
 float hash31(vec3 p) {
     p = fract(p * 0.1031);
@@ -63,11 +65,12 @@ void fragment() {
     float pores = mix(broad, fine, 0.42) - 0.5;
     float folds = fold_pattern(local_pos) * wrinkle_strength;
 
-    // anyCreature stores the authored palette, vertical shading grain and baked AO
-    // in COLOR_0. Godot exposes that as COLOR in spatial shaders. Preserve it here
-    // instead of flattening every creature back to the material's white base factor.
     vec3 vertex_skin = clamp(COLOR.rgb, vec3(0.015), vec3(1.0));
-    vec3 shaded = base_color.rgb * vertex_skin * (0.985 + pores * 0.055);
+    vec3 cool_tint = vec3(0.94, 0.97, 1.045);
+    vec3 warm_tint = vec3(1.07, 1.01, 0.90);
+    vec3 user_tint = mix(cool_tint, warm_tint, clamp(custom_warmth, 0.0, 1.0));
+    float custom_pattern = (hash31(floor(local_pos * 4.8)) - 0.5) * pattern_strength * 0.14;
+    vec3 shaded = base_color.rgb * vertex_skin * user_tint * (0.985 + pores * 0.055 + custom_pattern);
     shaded *= 1.0 - folds * 0.15;
 
     float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
@@ -135,8 +138,6 @@ func _apply_mesh_materials(mesh_instance, species):
             continue
         var material = ShaderMaterial.new()
         material.shader = skin_shader
-        # Vertex-coloured GLBs use a white baseColorFactor. Retaining source albedo here
-        # also keeps compatibility with any future non-vertex-coloured surfaces.
         material.set_shader_parameter("base_color", source.albedo_color)
         material.set_shader_parameter("roughness_base", clamp(float(source.roughness), 0.28, 0.92))
         material.set_shader_parameter("moisture", _species_moisture(species, surface_name))
@@ -144,37 +145,26 @@ func _apply_mesh_materials(mesh_instance, species):
         material.set_shader_parameter("pore_scale", _species_pore_scale(species))
         material.set_shader_parameter("wrinkle_strength", _species_wrinkles(species, surface_name))
         material.set_shader_parameter("fold_displacement", _species_fold_displacement(species, surface_name))
+        material.set_shader_parameter("custom_warmth", 0.5)
+        material.set_shader_parameter("pattern_strength", 0.25)
         mesh_instance.set_surface_override_material(surface_index, material)
 
-func _eye_material(source):
+func _eye_material(_source):
     var material = StandardMaterial3D.new()
-    var source_color = Color(0.055, 0.038, 0.028)
-    if source is StandardMaterial3D:
-        source_color = source.albedo_color
-    # Imported vertex-coloured eye materials can have a white base factor. Use a
-    # species-neutral deep living-eye value and let real lighting create highlights.
-    if source_color.r > 0.85 and source_color.g > 0.85 and source_color.b > 0.85:
-        source_color = Color(0.045, 0.031, 0.025)
-    material.albedo_color = source_color.darkened(0.18)
+    # The creature compiler carries the authored eye colour in COLOR_0.
+    material.albedo_color = Color.WHITE
+    material.vertex_color_use_as_albedo = true
     material.roughness = 0.028
     material.metallic = 0.0
     material.clearcoat_enabled = true
     material.clearcoat_roughness = 0.06
     return material
 
-func _nose_material(source, species):
+func _nose_material(_source, species):
     var material = StandardMaterial3D.new()
-    var source_color = Color(0.10, 0.075, 0.065)
-    if source is StandardMaterial3D:
-        source_color = source.albedo_color
-    if source_color.r > 0.85 and source_color.g > 0.85 and source_color.b > 0.85:
-        if species == "pygmy_hippo":
-            source_color = Color(0.085, 0.052, 0.064)
-        elif species == "pig":
-            source_color = Color(0.34, 0.16, 0.17)
-        else:
-            source_color = Color(0.045, 0.036, 0.030)
-    material.albedo_color = source_color
+    # Preserve the species-specific nose/snout palette from vertex colours.
+    material.albedo_color = Color.WHITE
+    material.vertex_color_use_as_albedo = true
     material.roughness = 0.10 if species != "shar_pei" else 0.14
     material.metallic = 0.0
     material.clearcoat_enabled = true
