@@ -1,6 +1,6 @@
 name: hippo_os
 publish_to: none
-description: Hippo OS private sanctuary Flutter shell with embedded Godot 3D runtime.
+description: Hippo OS private open-world living sanctuary with Flutter shell and embedded Godot runtime.
 version: 1.0.0+1
 
 environment:
@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_timezone: ^5.1.0
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:
