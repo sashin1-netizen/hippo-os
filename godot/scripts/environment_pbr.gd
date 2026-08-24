@@ -1,11 +1,11 @@
 extends Node
 
-const GRASS_DIFF = "res://assets/textures/leafy_grass_diff_4k.png"
-const GRASS_NORMAL = "res://assets/textures/leafy_grass_nor_gl_4k.png"
-const GRASS_ROUGH = "res://assets/textures/leafy_grass_rough_4k.png"
-const MUD_DIFF = "res://assets/textures/brown_mud_03_diff_4k.png"
-const MUD_NORMAL = "res://assets/textures/brown_mud_03_nor_gl_4k.png"
-const MUD_ROUGH = "res://assets/textures/brown_mud_03_rough_4k.png"
+const GRASS_DIFF = "res://assets/textures/leafy_grass_diff_4k.jpg"
+const GRASS_NORMAL = "res://assets/textures/leafy_grass_nor_gl_4k.jpg"
+const GRASS_ROUGH = "res://assets/textures/leafy_grass_rough_4k.jpg"
+const MUD_DIFF = "res://assets/textures/brown_mud_03_diff_4k.jpg"
+const MUD_NORMAL = "res://assets/textures/brown_mud_03_nor_gl_4k.jpg"
+const MUD_ROUGH = "res://assets/textures/brown_mud_03_rough_4k.jpg"
 
 var host
 
