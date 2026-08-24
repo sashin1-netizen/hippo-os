@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SAVE_VERSION = 4
+const SAVE_VERSION = 5
 
 var animals = {}
 var relationships = {}
@@ -17,6 +17,27 @@ var settings = {
     "time_mode": "automatic",
     "onboarding_complete": false
 }
+var customization = {
+    "interface": {
+        "accent_hue": 0.39,
+        "glass": 0.82,
+        "scale": 1.0
+    },
+    "world": {
+        "vegetation_density": 0.72,
+        "water_clarity": 0.72,
+        "mud_amount": 0.55,
+        "light_warmth": 0.58,
+        "weather_life": 0.65,
+        "wind_life": 0.55,
+        "world_motion": 0.62,
+        "auto_living_world": true
+    },
+    "camera": {
+        "bodycam_motion": 0.45
+    },
+    "animals": {}
+}
 var journal = []
 var last_save_unix = 0
 
@@ -32,6 +53,13 @@ func animal(animal_id):
 func set_relationships(data):
     if typeof(data) == TYPE_DICTIONARY:
         relationships = data.duplicate(true)
+
+func set_customization(data):
+    if typeof(data) == TYPE_DICTIONARY:
+        customization = data.duplicate(true)
+
+func customization_snapshot():
+    return customization.duplicate(true)
 
 func add_journal_event(kind, animal_id, text, importance):
     var event = {
@@ -58,6 +86,7 @@ func to_dict():
         "animals": animals,
         "relationships": relationships,
         "settings": settings,
+        "customization": customization,
         "journal": journal,
         "last_save_unix": int(Time.get_unix_time_from_system())
     }
@@ -77,6 +106,8 @@ func from_dict(data):
         var incoming_settings = migrated.get("settings", {})
         for key in incoming_settings.keys():
             settings[key] = incoming_settings[key]
+    if typeof(migrated.get("customization", {})) == TYPE_DICTIONARY:
+        customization = migrated.get("customization", customization).duplicate(true)
     if typeof(migrated.get("journal", [])) == TYPE_ARRAY:
         journal = migrated.get("journal", []).duplicate(true)
 
@@ -130,6 +161,10 @@ func _migrate(data, version):
                 if not migrated_settings.has("onboarding_complete"):
                     migrated_settings["onboarding_complete"] = true
                 result["settings"] = migrated_settings
+
+    if version < 5:
+        if not result.has("customization") or typeof(result.get("customization", {})) != TYPE_DICTIONARY:
+            result["customization"] = customization.duplicate(true)
 
     result["save_version"] = SAVE_VERSION
     return result
