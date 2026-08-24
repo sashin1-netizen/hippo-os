@@ -39,6 +39,14 @@ func _apply_pbr() -> void:
         push_warning("PBRHabitat: build-fetched 4K CC0 maps unavailable; keeping procedural fallback")
         return
 
+    # x86/x86_64 Android is primarily our software-rendered CI/emulator safety path.
+    # Keep the verified 4K sources inside the build, but avoid allocating the full PBR
+    # set on a software Vulkan device. ARM64 physical devices use the 4K mipmapped path.
+    var architecture := Engine.get_architecture_name().to_lower()
+    if "x86" in architecture:
+        push_warning("PBRHabitat: software x86 renderer detected; using procedural runtime fallback")
+        return
+
     var forest := _material(FOREST_DIFF, FOREST_NORM, FOREST_ROUGH, Vector3(5.6, 5.6, 5.6), 0.96)
     var rocky := _material(ROCK_DIFF, ROCK_NORM, ROCK_ROUGH, Vector3(2.4, 2.4, 2.4), 0.91)
 
