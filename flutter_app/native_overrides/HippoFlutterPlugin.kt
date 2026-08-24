@@ -14,6 +14,7 @@ class HippoFlutterPlugin(
         val CAMERA_MODE_REQUESTED = SignalInfo("camera_mode_requested", String::class.java)
         val DEVICE_TIME_SYNCED = SignalInfo("device_time_synced", String::class.java)
         val ANIMAL_ACTION_REQUESTED = SignalInfo("animal_action_requested", String::class.java)
+        val CUSTOMIZATION_REQUESTED = SignalInfo("customization_requested", String::class.java)
     }
 
     override fun getPluginName() = "HippoFlutterBridge"
@@ -22,6 +23,7 @@ class HippoFlutterPlugin(
         CAMERA_MODE_REQUESTED,
         DEVICE_TIME_SYNCED,
         ANIMAL_ACTION_REQUESTED,
+        CUSTOMIZATION_REQUESTED,
     )
 
     fun requestCameraMode(mode: String) {
@@ -34,6 +36,10 @@ class HippoFlutterPlugin(
 
     fun requestAnimalAction(action: String) {
         emitSignal(ANIMAL_ACTION_REQUESTED.name, action)
+    }
+
+    fun requestCustomization(json: String) {
+        emitSignal(CUSTOMIZATION_REQUESTED.name, json)
     }
 
     @UsedByGodot
