@@ -7,6 +7,11 @@ on:
     paths:
       - 'godot/**'
       - '.github/workflows/build-android-apk.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - '.github/workflows/build-android-apk.yml'
 
 permissions:
   contents: write
@@ -22,7 +27,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      GODOT_VERSION: 4.4.1
+      GODOT_VERSION: 4.7.2
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
       GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
@@ -42,22 +47,22 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android API 35 toolchain
+      - name: Install Android API 36 toolchain
         shell: bash
         run: |
           set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --sdk_root="$ANDROID_HOME" \
             'platform-tools' \
-            'build-tools;35.0.0' \
-            'platforms;android-35' \
+            'build-tools;36.1.0' \
+            'platforms;android-36' \
             'cmdline-tools;latest' \
             'cmake;3.10.2.4988404' \
-            'ndk;23.2.8568313'
+            'ndk;29.0.14206865'
           adb version
           java -version
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" version
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" version
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" version
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
 
       - name: Generate debug signing key
         shell: bash
@@ -77,10 +82,10 @@ jobs:
           fi
           test -s "$HOME/.android/debug.keystore"
 
-      - name: Set up Godot 4.4.1 with export templates
+      - name: Set up Godot 4.7.2 with export templates
         uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.4.1
+          version: 4.7.2
           use-dotnet: false
           include-templates: true
 
@@ -89,7 +94,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
@@ -97,6 +102,7 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
           godot --version
+          godot --version | grep -q '^4.7.2'
 
       - name: Validate Godot project
         shell: bash
@@ -106,7 +112,10 @@ jobs:
           test -f project.godot
           test -f main.tscn
           test -f export_presets.cfg
-          grep -q 'target_sdk="35"' export_presets.cfg
+          grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
+          grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
+          ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
+          ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -q 'architectures/arm64-v8a=true' export_presets.cfg
           godot --headless --editor --path . --import --quit
@@ -122,14 +131,15 @@ jobs:
           test -s "$GITHUB_WORKSPACE/build/HippoOS.apk"
           ls -lh "$GITHUB_WORKSPACE/build/HippoOS.apk"
 
-      - name: Verify APK package and signature
+      - name: Verify APK package, SDK and signature
         shell: bash
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS.apk"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "package: name='com.sashin.hippoos'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
+          grep -q "targetSdkVersion:'36'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.apk.sha256"
 
       - name: Upload verified build artifact
@@ -145,7 +155,7 @@ jobs:
           retention-days: 30
 
       - name: Publish phone-ready APK release
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: apk-${{ github.run_number }}
@@ -160,4 +170,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS Android APK · Build ${{ github.run_number }}" \
-            --notes "Verified ARM64 Android debug APK built from main with Godot 4.4.1. Package: com.sashin.hippoos. The APK was signature-checked and its SHA-256 is attached."
+            --notes "Verified ARM64 Android debug APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. The APK was signature-checked and its SHA-256 is attached."
