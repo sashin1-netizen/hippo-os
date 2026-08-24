@@ -54,6 +54,11 @@ func flutter_action(action_name):
         _push_flutter_status()
         return true
 
+    if action == "reset_sanctuary":
+        _reset_sanctuary_files()
+        call_deferred("_reload_after_reset")
+        return true
+
     if action == "feed":
         if not _interaction_allowed():
             _set_too_far_hint()
@@ -82,6 +87,18 @@ func flutter_action(action_name):
         return true
 
     return super(action)
+
+func _reset_sanctuary_files():
+    for path in [PRIMARY_SAVE, BACKUP_SAVE, TEMP_SAVE]:
+        if FileAccess.file_exists(path):
+            var error = DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+            if error != OK:
+                push_error("Unable to remove sanctuary reset file %s: %s" % [path, error])
+
+func _reload_after_reset():
+    var error = get_tree().reload_current_scene()
+    if error != OK:
+        push_error("Sanctuary reset reload failed: %s" % error)
 
 func _interaction_allowed() -> bool:
     var controller = _open_world_controller()
