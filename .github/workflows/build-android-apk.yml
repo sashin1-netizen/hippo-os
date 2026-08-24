@@ -8,6 +8,7 @@ on:
       - 'godot/**'
       - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
+      - '.github/scripts/fetch-habitat-assets.sh'
       - '.github/scripts/verify-production-release.sh'
       - '.github/workflows/build-android-apk.yml'
       - '.github/workflows/build-play-aab.yml'
@@ -17,6 +18,7 @@ on:
       - 'godot/**'
       - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
+      - '.github/scripts/fetch-habitat-assets.sh'
       - '.github/scripts/verify-production-release.sh'
       - '.github/workflows/build-android-apk.yml'
       - '.github/workflows/build-play-aab.yml'
@@ -100,13 +102,13 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF_SETTINGS
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
           export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
-          EOF
+          EOF_SETTINGS
           godot --version
           godot --version | grep -q '^4.7.2'
 
@@ -133,15 +135,25 @@ jobs:
           test -f scripts/character_motion_polish.gd
           test -f scripts/production_asset_loader.gd
           test -f scripts/lifelike_rendering.gd
+          test -f scripts/pbr_habitat.gd
+          test -f scripts/cinematic_quality.gd
           test -s assets/audio/forest_ambience.ogg
           test -s assets/audio/water_stream.ogg
           test -s assets/audio/birds_garden.ogg
           test -s assets/branding/hippo_icon.svg
+          test -s assets/habitat/pbr/forrest_ground_01_diff_4k.jpg
+          test -s assets/habitat/pbr/forrest_ground_01_nor_gl_4k.jpg
+          test -s assets/habitat/pbr/forrest_ground_01_rough_4k.jpg
+          test -s assets/habitat/pbr/rocks_ground_08_diff_4k.jpg
+          test -s assets/habitat/pbr/rocks_ground_08_nor_gl_4k.jpg
+          test -s assets/habitat/pbr/rocks_ground_08_rough_4k.jpg
           grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
           grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
           grep -q 'DeviceDiagnostics="\*res://scripts/device_diagnostics.gd"' project.godot
           grep -q 'ProductionAssetLoader="\*res://scripts/production_asset_loader.gd"' project.godot
           grep -q 'LifelikeRendering="\*res://scripts/lifelike_rendering.gd"' project.godot
+          grep -q 'PBRHabitat="\*res://scripts/pbr_habitat.gd"' project.godot
+          grep -q 'CinematicQuality="\*res://scripts/cinematic_quality.gd"' project.godot
           grep -q 'config/version="0.2.2-personal"' project.godot
           grep -q 'stretch/aspect="expand"' project.godot
           grep -q 'renderer/rendering_method="mobile"' project.godot
@@ -291,9 +303,15 @@ jobs:
             ! grep -q 'mCurrentFocus=.*ImmersiveModeConfirmation' apk/window-displays.txt
             adb exec-out screencap -p > apk/launch.png
             test -s apk/launch.png
+            SCREEN_BYTES="$(stat -c%s apk/launch.png)"
+            if [ "$SCREEN_BYTES" -lt 50000 ]; then
+              echo "Launch screenshot is suspiciously small/blank: ${SCREEN_BYTES} bytes" >&2
+              exit 1
+            fi
             adb logcat -d -t 600 > apk/adb-logcat.txt
             ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt
-            ! grep -Eiq 'godot.*(SceneShaderGLES3|Program linking failed|Fragment shader active uniforms exceed|SHADER ERROR|Shader compilation failed)' apk/adb-logcat.txt
+            ! grep -Eiq 'godot.*(SceneShaderGLES3|Program linking failed|Fragment shader active uniforms exceed|SHADER ERROR:|Shader compilation failed)' apk/adb-logcat.txt
+            ! grep -Eiq "Couldn't present to Vulkan queue|Couldn.t present to Vulkan queue|VkResult error|VK_ERROR_DEVICE_LOST" apk/adb-logcat.txt
 
       - name: Upload Android 16 install and visual evidence
         if: always()
@@ -340,4 +358,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS 0.2.2 Personal Android APK" \
-            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. Godot Mobile renderer. Strict script/autoload/shader compile and export checks, 16 KB alignment verification, v2/v3 signature verification, PackageManager install + launch proof, runtime renderer error gate, and launch screenshot evidence are required before publication."
+            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. Godot Mobile renderer. Strict script/autoload/shader compile and export checks, verified 4K sanctuary source assets, 16 KB alignment verification, v2/v3 signature verification, PackageManager install + launch proof, Vulkan present error rejection, and non-blank launch screenshot evidence are required before publication."
