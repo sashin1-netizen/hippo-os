@@ -2,7 +2,6 @@
 import math
 import random
 import struct
-import subprocess
 import time
 import urllib.request
 import wave
@@ -48,7 +47,7 @@ def step_wave(freq, duration, noise=0.20, thump=0.65):
 def splash(t, i, n):
     duration = n / RATE
     e = max(0.0, env(t, duration, 0.006, 0.25))
-    noise = (random.random() * 2 - 1)
+    noise = random.random() * 2 - 1
     bubble = math.sin(2 * math.pi * (105 + 55 * math.exp(-t * 5)) * t)
     return e * (0.42 * noise * math.exp(-t * 4.5) + 0.22 * bubble * math.exp(-t * 3.0))
 
@@ -103,7 +102,7 @@ def download_visual_asset(name, url):
     for attempt in range(4):
         try:
             tmp = target.with_suffix(target.suffix + ".part")
-            with urllib.request.urlopen(request, timeout=90) as response, tmp.open("wb") as output:
+            with urllib.request.urlopen(request, timeout=120) as response, tmp.open("wb") as output:
                 while True:
                     chunk = response.read(1024 * 1024)
                     if not chunk:
@@ -130,8 +129,8 @@ write_wav("drink_lap.wav", 1.65, lap)
 write_wav("ui_click.wav", 0.11, click)
 write_wav("sanctuary_ambience.wav", 24.0, ambience)
 
-# CC0 source materials from Poly Haven. 4K JPEG masters keep the source fidelity high
-# while avoiding the extreme APK cost of uncompressed 4K PNG maps.
+# CC0 source materials from Poly Haven. These remain source-quality inputs; Godot
+# performs the runtime texture import/compression for the target Android renderer.
 download_visual_asset(
     "leafy_grass_diff_4k.jpg",
     "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/leafy_grass/leafy_grass_diff_4k.jpg",
@@ -157,7 +156,9 @@ download_visual_asset(
     "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_rough_4k.jpg",
 )
 
-# Recompile the same original animal specs at a denser production mesh resolution and
-# add species-specific micro-animation clips. The strict anyCreature compiler remains
-# the validator; a failed refined mesh fails the build instead of silently falling back.
-subprocess.run(["python3", "Tools/refine_creatures.py"], check=True)
+# CC0 South African daylight panorama. Poly Haven publishes this as an 8K
+# tonemapped source; using a source above 4K preserves the requested 4K visual bar.
+download_visual_asset(
+    "kloofendal_38d_partly_cloudy_puresky.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/HDRIs/extra/Tonemapped%20JPG/kloofendal_38d_partly_cloudy_puresky.jpg",
+)
