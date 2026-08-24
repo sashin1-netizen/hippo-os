@@ -27,6 +27,7 @@ GrasslandsSanctuary="*res://scripts/grasslands_sanctuary.gd"
 SanctuaryHUD="*res://scripts/sanctuary_hud.gd"
 HeroCameraDirector="*res://scripts/hero_camera_director.gd"
 AppCompleteness="*res://scripts/app_completeness.gd"
+PBRHabitat="*res://scripts/pbr_habitat.gd"
 
 [display]
 
