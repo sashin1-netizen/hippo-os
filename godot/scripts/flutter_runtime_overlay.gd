@@ -23,3 +23,9 @@ func flutter_action(action_name):
         return true
 
     return super(action)
+
+func get_flutter_status():
+    var payload = super()
+    payload["selected_id"] = selected_id
+    payload["journal_json"] = JSON.stringify(sanctuary.recent_journal(24))
+    return payload
