@@ -1,0 +1,19 @@
+{
+  "device_model": "REQUIRED",
+  "android_version": "REQUIRED",
+  "tested_build_sha256": "REQUIRED",
+  "tested_at": "REQUIRED",
+  "installs_on_target_phone": false,
+  "launches_from_home_screen": false,
+  "device_check_passes": false,
+  "speaker_audio_passes": false,
+  "bluetooth_audio_passes": false,
+  "save_restart_passes": false,
+  "background_resume_passes": false,
+  "offline_progression_passes": false,
+  "safe_area_passes": false,
+  "vfx_passes": false,
+  "ui_visual_acceptance_passes": false,
+  "performance_passes": false,
+  "production_visual_acceptance_passes": false
+}

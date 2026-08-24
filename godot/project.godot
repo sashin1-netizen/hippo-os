@@ -3,7 +3,7 @@ config/name="Hippo OS"
 config/version="0.2.2-personal"
 config/icon="res://assets/branding/hippo_icon.svg"
 run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.7", "GL Compatibility")
+config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/show_image=false
 
 [autoload]
@@ -23,6 +23,9 @@ AnimalArtPolish="*res://scripts/animal_art_polish.gd"
 PremiumExperience="*res://scripts/premium_experience.gd"
 ProductionAssetLoader="*res://scripts/production_asset_loader.gd"
 LifelikeRendering="*res://scripts/lifelike_rendering.gd"
+GrasslandsSanctuary="*res://scripts/grasslands_sanctuary.gd"
+SanctuaryHUD="*res://scripts/sanctuary_hud.gd"
+HeroCameraDirector="*res://scripts/hero_camera_director.gd"
 
 [display]
 
@@ -36,8 +39,9 @@ stretch/aspect="expand"
 handheld/orientation=0
 
 [rendering]
-renderer/rendering_method="gl_compatibility"
-renderer/rendering_method.mobile="gl_compatibility"
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+rendering_device/fallback_to_opengl3=true
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 
