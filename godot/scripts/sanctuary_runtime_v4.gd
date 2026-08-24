@@ -1,5 +1,6 @@
 extends "res://scripts/sanctuary_v3.gd"
 
+const LivingWorld = preload("res://scripts/living_world.gd")
 const CAMERA_MODES = ["cinematic", "caretaker", "bodycam", "overhead"]
 const FLUTTER_BRIDGE_NAME = "HippoFlutterBridge"
 
@@ -12,6 +13,7 @@ var device_utc_offset_minutes = 0
 var last_device_clock_sync_ms = 0
 var flutter_bridge = null
 var flutter_status_timer = null
+var living_world = null
 
 func set_camera_mode(value):
     var requested = str(value).to_lower()
@@ -37,6 +39,17 @@ func sync_device_time(payload):
     _push_flutter_status()
     return true
 
+func apply_customization(payload):
+    if living_world == null or typeof(payload) != TYPE_DICTIONARY:
+        return false
+    if not living_world.apply_customization(payload):
+        return false
+    sanctuary.set_customization(living_world.customization)
+    sanctuary.add_journal_event("customization", "sanctuary", "The sanctuary evolved with your latest customisation.", 0.25)
+    _save_sanctuary()
+    _push_flutter_status()
+    return true
+
 func flutter_action(action_name):
     match str(action_name):
         "feed":
@@ -57,7 +70,7 @@ func get_flutter_status():
     if actor == null or actor.state == null:
         return {}
     var needs = actor.state.needs
-    return {
+    var payload = {
         "animal_name": actor.display_name(),
         "species_name": actor.species_display_name(),
         "status": actor.status_line(),
@@ -68,6 +81,15 @@ func get_flutter_status():
         "energy": float(needs.get("energy", 0.0)),
         "security": float(actor.state.emotion.get("security", 0.0))
     }
+    if living_world != null:
+        var climate = living_world.climate
+        payload["wind"] = float(climate.get("wind", 0.0))
+        payload["humidity"] = float(climate.get("humidity", 0.0))
+        payload["cloudiness"] = float(climate.get("cloudiness", 0.0))
+        payload["ground_dampness"] = float(climate.get("ground_dampness", 0.0))
+        payload["water_activity"] = float(climate.get("water_activity", 0.0))
+        payload["world_age_seconds"] = float(living_world.world_age_seconds)
+    return payload
 
 func _ready():
     super()
@@ -75,7 +97,16 @@ func _ready():
     if camera_mode not in CAMERA_MODES:
         camera_mode = "cinematic"
     device_timezone = str(sanctuary.settings.get("device_timezone", "Local"))
+    living_world = LivingWorld.new()
+    living_world.name = "LivingWorld"
+    add_child(living_world)
+    living_world.setup(environment, sun, animals, sanctuary.customization_snapshot())
     _setup_flutter_bridge()
+
+func _process(delta):
+    super(delta)
+    if living_world != null:
+        living_world.tick(delta, _effective_local_hour())
 
 func _setup_flutter_bridge():
     if not Engine.has_singleton(FLUTTER_BRIDGE_NAME):
@@ -87,6 +118,8 @@ func _setup_flutter_bridge():
         flutter_bridge.device_time_synced.connect(_on_flutter_time_json)
     if flutter_bridge.has_signal("animal_action_requested"):
         flutter_bridge.animal_action_requested.connect(flutter_action)
+    if flutter_bridge.has_signal("customization_requested"):
+        flutter_bridge.customization_requested.connect(_on_flutter_customization_json)
 
     flutter_status_timer = Timer.new()
     flutter_status_timer.wait_time = 0.5
@@ -100,6 +133,11 @@ func _on_flutter_time_json(payload_json):
     var payload = JSON.parse_string(str(payload_json))
     if typeof(payload) == TYPE_DICTIONARY:
         sync_device_time(payload)
+
+func _on_flutter_customization_json(payload_json):
+    var payload = JSON.parse_string(str(payload_json))
+    if typeof(payload) == TYPE_DICTIONARY:
+        apply_customization(payload)
 
 func _push_flutter_status():
     if flutter_bridge == null:
@@ -125,7 +163,8 @@ func _update_camera(delta):
         var forward = Vector3(sin(orbit_yaw), 0.0, cos(orbit_yaw)).normalized()
         var side = Vector3(forward.z, 0.0, -forward.x)
         var base_position = pivot - forward * 2.55 + Vector3(0.0, 0.88, 0.0)
-        var sway = 0.0 if reduced_motion else 0.018
+        var bodycam_motion = living_world.bodycam_motion() if living_world != null else 0.45
+        var sway = 0.0 if reduced_motion else lerp(0.0, 0.032, bodycam_motion)
         desired = base_position + side * sin(bodycam_phase) * sway + Vector3(0.0, cos(bodycam_phase * 2.0) * sway * 0.55, 0.0)
         target = pivot + Vector3(0.0, 0.18 + sin(orbit_pitch) * 0.35, 0.0)
         camera.fov = lerp(camera.fov, 74.0, min(delta * 5.0, 1.0))
