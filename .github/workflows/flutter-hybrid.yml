@@ -26,7 +26,7 @@ jobs:
   flutter-godot-hybrid:
     name: Validate Flutter + Godot open-world hybrid
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 75
     env:
       GODOT_VERSION: 4.7.2
       ANYCREATURE_COMMIT: ab5b1ce5c13e632f00f7f7cbfdb7a746e315000d
@@ -135,28 +135,38 @@ jobs:
           grep -q 'SELF-TEST PASS' /tmp/hippo-self-test.log
           ! grep -q 'SELF-TEST FAIL' /tmp/hippo-self-test.log
 
-      - name: Install software renderer for visual QA
+      - name: Install software renderer for 4K visual QA
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri
 
-      - name: Capture sanctuary visual QA frame
+      - name: Capture true 4K sanctuary visual QA frame
         working-directory: godot
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p artifacts
-          xvfb-run -a -s '-screen 0 1920x1080x24' \
-            godot --path . --display-driver x11 --resolution 1920x1080 \
+          xvfb-run -a -s '-screen 0 3840x2160x24' \
+            godot --path . --display-driver x11 --resolution 3840x2160 \
             --script res://scripts/release_capture.gd 2>&1 | tee /tmp/hippo-visual-qa.log
-          grep -q 'VISUAL QA CAPTURE PASS' /tmp/hippo-visual-qa.log
-          test -s artifacts/sanctuary-cinematic-1080p.png
+          grep -q 'VISUAL QA CAPTURE PASS: 3840 x 2160' /tmp/hippo-visual-qa.log
+          test -s artifacts/sanctuary-cinematic-4k.png
+          python3 - <<'PY'
+          import struct
+          path='artifacts/sanctuary-cinematic-4k.png'
+          with open(path,'rb') as f:
+              sig=f.read(24)
+          assert sig[:8] == b'\x89PNG\r\n\x1a\n'
+          w,h=struct.unpack('>II', sig[16:24])
+          assert (w,h)==(3840,2160), (w,h)
+          print('4K PNG dimensions verified')
+          PY
 
-      - name: Upload visual QA frame
+      - name: Upload 4K visual QA frame
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Visual-QA
-          path: godot/artifacts/sanctuary-cinematic-1080p.png
+          name: HippoOS-Visual-QA-4K
+          path: godot/artifacts/sanctuary-cinematic-4k.png
           if-no-files-found: error
           retention-days: 7
 
@@ -204,6 +214,8 @@ jobs:
           test -f "$ASSET_DIR/scripts/environment_collision.gd"
           test -f "$ASSET_DIR/scripts/relationship_runtime.gd"
           test -f "$ASSET_DIR/scripts/animal_surface_effects.gd"
+          test -f "$ASSET_DIR/scripts/performance_lod.gd"
+          test -f "$ASSET_DIR/scripts/weather_fx.gd"
 
       - name: Resolve Flutter dependencies
         working-directory: flutter_app
@@ -213,9 +225,9 @@ jobs:
         working-directory: flutter_app
         run: flutter analyze
 
-      - name: Run Flutter contract tests
+      - name: Run all Flutter tests
         working-directory: flutter_app
-        run: flutter test test/sanctuary_contract_test.dart
+        run: flutter test
 
       - name: Verify production Flutter entrypoint
         shell: bash
@@ -228,6 +240,8 @@ jobs:
           grep -q "reset_sanctuary" godot/scripts/flutter_runtime_overlay.gd
           grep -q "roam:" flutter_app/lib/open_world_app.dart
           grep -q "BODYCAM" flutter_app/lib/open_world_app.dart
+          grep -q "PRIVACY" flutter_app/lib/production_app.dart
+          grep -q "CREDITS & LICENCES" flutter_app/lib/production_app.dart
 
       - name: Build phone-sized ARM64 internal QA APK
         working-directory: flutter_app
@@ -260,7 +274,51 @@ jobs:
           grep -q "package: name='com.sashin.hippoos.preview'" /tmp/hippo-apk-badging.txt
           grep -q "application-label:'Hippo OS Preview'" /tmp/hippo-apk-badging.txt
 
-      - name: Upload internal QA APK
+      - name: Build x86_64 emulator-only QA APK
+        working-directory: flutter_app
+        run: flutter build apk --release --split-per-abi --target-platform android-x64
+
+      - name: Boot Android emulator and exercise lifecycle
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          script: |
+            set -euxo pipefail
+            APK='flutter_app/build/app/outputs/flutter-apk/app-x86_64-release.apk'
+            test -s "$APK"
+            adb install -r "$APK"
+            adb logcat -c
+            adb shell monkey -p com.sashin.hippoos.preview -c android.intent.category.LAUNCHER 1
+            sleep 15
+            adb shell pidof com.sashin.hippoos.preview
+            for i in 1 2 3 4 5; do
+              adb shell input keyevent KEYCODE_HOME
+              sleep 1
+              adb shell monkey -p com.sashin.hippoos.preview -c android.intent.category.LAUNCHER 1
+              sleep 3
+              adb shell pidof com.sashin.hippoos.preview
+            done
+            adb shell am force-stop com.sashin.hippoos.preview
+            sleep 2
+            adb shell monkey -p com.sashin.hippoos.preview -c android.intent.category.LAUNCHER 1
+            sleep 8
+            adb shell pidof com.sashin.hippoos.preview
+            adb logcat -d > /tmp/hippo-emulator-logcat.txt
+            ! grep -E 'FATAL EXCEPTION|ANR in com\.sashin\.hippoos\.preview|Process: com\.sashin\.hippoos\.preview.*has died' /tmp/hippo-emulator-logcat.txt
+
+      - name: Upload emulator logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Android-Emulator-Logcat
+          path: /tmp/hippo-emulator-logcat.txt
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload internal ARM64 QA APK
         uses: actions/upload-artifact@v4
         with:
           name: HippoOS-OpenWorld-Internal-ARM64
