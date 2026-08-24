@@ -28,6 +28,7 @@ class MainActivity : FlutterFragmentActivity(), GodotHost {
     private var eventSink: EventChannel.EventSink? = null
     private var pendingCameraMode: String? = null
     private var pendingTimeJson: String? = null
+    private var pendingCustomizationJson: String? = null
     private val pendingActions = ArrayDeque<String>()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -53,6 +54,14 @@ class MainActivity : FlutterFragmentActivity(), GodotHost {
                         val json = JSONObject(payload).toString()
                         pendingTimeJson = json
                         bridgePlugin?.syncDeviceTime(json)
+                        result.success(true)
+                    }
+                    "applyCustomization" -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val payload = call.arguments as? Map<String, Any?> ?: emptyMap()
+                        val json = JSONObject(payload).toString()
+                        pendingCustomizationJson = json
+                        bridgePlugin?.requestCustomization(json)
                         result.success(true)
                     }
                     "animalAction" -> {
@@ -105,6 +114,7 @@ class MainActivity : FlutterFragmentActivity(), GodotHost {
         }
         pendingCameraMode?.let { bridgePlugin?.requestCameraMode(it) }
         pendingTimeJson?.let { bridgePlugin?.syncDeviceTime(it) }
+        pendingCustomizationJson?.let { bridgePlugin?.requestCustomization(it) }
         while (pendingActions.isNotEmpty()) {
             bridgePlugin?.requestAnimalAction(pendingActions.removeFirst())
         }
