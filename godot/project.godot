@@ -3,18 +3,17 @@ config/name="Hippo OS"
 run/main_scene="res://sanctuary_v3.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://assets/icon.svg"
-boot_splash/show_image=true
-boot_splash/image="res://assets/splash.png"
+boot_splash/show_image=false
 boot_splash/bg_color=Color(0.02, 0.05, 0.04, 1)
 
 [display]
 
 [display/window]
-size/viewport_width=1280
-size/viewport_height=720
+size/viewport_width=3840
+size/viewport_height=2160
 size/window_width_override=1280
 size/window_height_override=720
-stretch/mode="canvas_items"
+stretch/mode="disabled"
 stretch/aspect="expand"
 handheld/orientation=0
 
@@ -23,6 +22,7 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
+rendering/scaling_3d/scale=1.0
 
 [input_devices]
 pointing/emulate_touch_from_mouse=true
