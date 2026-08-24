@@ -2,14 +2,14 @@ extends Node
 
 # Applies real CC0 photographed PBR texture sets when build-fetched assets exist.
 # The procedural materials remain a source-tree fallback, while Android release builds
-# package the 1K maps into the APK before Godot import.
+# package genuine 4096x4096 source maps and let Godot generate mobile mip levels.
 
-const FOREST_DIFF := "res://assets/habitat/pbr/forrest_ground_01_diff_1k.jpg"
-const FOREST_NORM := "res://assets/habitat/pbr/forrest_ground_01_nor_gl_1k.jpg"
-const FOREST_ROUGH := "res://assets/habitat/pbr/forrest_ground_01_rough_1k.jpg"
-const ROCK_DIFF := "res://assets/habitat/pbr/rocks_ground_08_diff_1k.jpg"
-const ROCK_NORM := "res://assets/habitat/pbr/rocks_ground_08_nor_gl_1k.jpg"
-const ROCK_ROUGH := "res://assets/habitat/pbr/rocks_ground_08_rough_1k.jpg"
+const FOREST_DIFF := "res://assets/habitat/pbr/forrest_ground_01_diff_4k.jpg"
+const FOREST_NORM := "res://assets/habitat/pbr/forrest_ground_01_nor_gl_4k.jpg"
+const FOREST_ROUGH := "res://assets/habitat/pbr/forrest_ground_01_rough_4k.jpg"
+const ROCK_DIFF := "res://assets/habitat/pbr/rocks_ground_08_diff_4k.jpg"
+const ROCK_NORM := "res://assets/habitat/pbr/rocks_ground_08_nor_gl_4k.jpg"
+const ROCK_ROUGH := "res://assets/habitat/pbr/rocks_ground_08_rough_4k.jpg"
 
 var scene_root: Node3D
 var applied := false
@@ -36,7 +36,7 @@ func _bind_when_ready() -> void:
 
 func _apply_pbr() -> void:
     if not _all_textures_exist():
-        push_warning("PBRHabitat: build-fetched CC0 maps unavailable; keeping procedural fallback")
+        push_warning("PBRHabitat: build-fetched 4K CC0 maps unavailable; keeping procedural fallback")
         return
 
     var forest := _material(FOREST_DIFF, FOREST_NORM, FOREST_ROUGH, Vector3(5.6, 5.6, 5.6), 0.96)
