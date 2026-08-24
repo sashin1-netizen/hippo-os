@@ -45,7 +45,11 @@ func _process(delta: float) -> void:
     update_timer -= delta
     if update_timer <= 0.0:
         update_timer = 2.5
-        _update_daylight()
+        # SanctuaryWeather becomes the single live sky/light/fog authority when
+        # installed. Keeping this fallback only for builds without that service
+        # prevents the two directors from visibly fighting every few seconds.
+        if get_node_or_null("/root/SanctuaryWeather") == null:
+            _update_daylight()
 
 func _build_grasslands_layer() -> void:
     var old := scene_root.find_child("GrasslandsProductionLayer", true, false)
