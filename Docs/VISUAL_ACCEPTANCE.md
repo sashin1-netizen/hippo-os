@@ -141,6 +141,17 @@ Production acceptance requires:
 - stable memory use during companion switching, camera mode, water/mud effects and background/resume;
 - audio and haptics remain synchronized with interaction.
 
+### Emulator evidence is diagnostic only
+
+GitHub's Android emulator uses a software graphics stack (SwiftShader) and is useful for PackageManager install, launcher, lifecycle and crash testing. It is **not** the final visual authority for Hippo OS 1.0. Godot rendering behavior on software-emulated Android graphics can differ from a physical Vulkan/OpenGL phone.
+
+Therefore:
+
+- emulator screenshots and renderer logs remain CI diagnostic artifacts;
+- an emulator black frame must be investigated and may block technical CI if it indicates a real app/runtime error;
+- **emulator success cannot satisfy production visual acceptance**;
+- production visual acceptance must be performed on the actual target Android phone using the production renderer and production assets.
+
 ## 7. Final screenshot comparison
 
 Before 1.0 production approval, capture clean screenshots from the actual target Android phone for:
