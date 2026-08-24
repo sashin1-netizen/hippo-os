@@ -48,7 +48,8 @@ func _required_runtime_modules():
         "res://scripts/terrain_realism.gd",
         "res://scripts/foliage_realism.gd",
         "res://scripts/weather_fx.gd",
-        "res://scripts/interaction_reactions.gd"
+        "res://scripts/interaction_reactions.gd",
+        "res://scripts/world_prop_realism.gd"
     ]
 
 func _check_project_files():
@@ -106,7 +107,8 @@ func _check_open_world_scene_contract():
         "TerrainRealism",
         "FoliageRealism",
         "WeatherFX",
-        "InteractionReactions"
+        "InteractionReactions",
+        "WorldPropRealism"
     ]
     for node_name in required_nodes:
         if not ("name=\"%s\"" % node_name) in scene_text:
