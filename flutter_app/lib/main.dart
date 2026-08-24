@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'camera_mode.dart';
+import 'customization_sheet.dart';
+import 'customization_state.dart';
 import 'device_time_service.dart';
 
 void main() {
@@ -48,10 +50,12 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
 
   final _clock = const DeviceTimeService();
   SanctuaryCameraMode _cameraMode = SanctuaryCameraMode.cinematic;
+  SanctuaryCustomization _customization = const SanctuaryCustomization();
   String _animal = 'Mochi';
   String _species = 'Pygmy Hippo';
   String _status = 'Sanctuary online';
   String _zone = 'LOCAL TIME';
+  String _worldPulse = 'Living world starting';
   StreamSubscription<dynamic>? _eventSubscription;
   Timer? _clockSyncTimer;
 
@@ -80,9 +84,7 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _syncRealTime();
-    }
+    if (state == AppLifecycleState.resumed) _syncRealTime();
   }
 
   Future<void> _syncRealTime() async {
@@ -91,18 +93,28 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
       if (mounted) setState(() => _zone = snapshot.ianaZone);
       await _control.invokeMethod('syncDeviceTime', snapshot.toEnginePayload());
     } on PlatformException {
-      // The engine bridge becomes available after the native host attaches.
+      // Godot attaches immediately after the Flutter host is ready.
     }
   }
 
   void _handleEngineEvent(dynamic event) {
-    if (event is! Map) return;
-    if (!mounted) return;
+    if (event is! Map || !mounted) return;
+    final wind = _asDouble(event['wind']);
+    final humidity = _asDouble(event['humidity']);
     setState(() {
       _animal = '${event['animal_name'] ?? _animal}';
       _species = '${event['species_name'] ?? _species}';
       _status = '${event['status'] ?? _status}';
+      if (wind != null && humidity != null) {
+        _worldPulse =
+            'Wind ${(wind * 100).round()}%  ·  Humidity ${(humidity * 100).round()}%';
+      }
     });
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value');
   }
 
   Future<void> _setCamera(SanctuaryCameraMode mode) async {
@@ -113,6 +125,31 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
   Future<void> _action(String action) async {
     await _control.invokeMethod('animalAction', action);
   }
+
+  Future<void> _applyCustomization(SanctuaryCustomization next) async {
+    setState(() => _customization = next);
+    await _control.invokeMethod('applyCustomization', next.toEnginePayload());
+  }
+
+  Future<void> _openCustomization() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CustomizationSheet(
+        initial: _customization,
+        onChanged: _applyCustomization,
+      ),
+    );
+  }
+
+  Color get _accent => HSVColor.fromAHSV(
+        1,
+        _customization.accentHue * 360,
+        0.34,
+        0.92,
+      ).toColor();
 
   @override
   Widget build(BuildContext context) {
@@ -133,9 +170,9 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.58),
+                      Colors.black.withValues(alpha: 0.54),
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.70),
+                      Colors.black.withValues(alpha: 0.68),
                     ],
                     stops: const [0.0, 0.48, 1.0],
                   ),
@@ -144,24 +181,36 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-              child: Column(
-                children: [
-                  _TopBar(
-                    animal: _animal,
-                    species: _species,
-                    status: _status,
-                    zone: _zone,
-                  ),
-                  const Spacer(),
-                  _CameraStrip(
-                    selected: _cameraMode,
-                    onSelected: _setCamera,
-                  ),
-                  const SizedBox(height: 12),
-                  _ActionDock(onAction: _action),
-                ],
+            child: Transform.scale(
+              scale: _customization.interfaceScale,
+              alignment: Alignment.center,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                child: Column(
+                  children: [
+                    _TopBar(
+                      animal: _animal,
+                      species: _species,
+                      status: _status,
+                      zone: _zone,
+                      worldPulse: _worldPulse,
+                      accent: _accent,
+                      glass: _customization.interfaceGlass,
+                    ),
+                    const Spacer(),
+                    _CameraStrip(
+                      selected: _cameraMode,
+                      onSelected: _setCamera,
+                      accent: _accent,
+                    ),
+                    const SizedBox(height: 12),
+                    _ActionDock(
+                      onAction: _action,
+                      onCustomize: _openCustomization,
+                      accent: _accent,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -183,25 +232,30 @@ class _TopBar extends StatelessWidget {
     required this.species,
     required this.status,
     required this.zone,
+    required this.worldPulse,
+    required this.accent,
+    required this.glass,
   });
 
   final String animal;
   final String species;
   final String status;
   final String zone;
+  final String worldPulse;
+  final Color accent;
+  final double glass;
 
   @override
   Widget build(BuildContext context) {
+    final alpha = (0.58 + glass * 0.30).clamp(0.58, 0.92);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xD90A0F0E),
+        color: const Color(0xFF0A0F0E).withValues(alpha: alpha),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: const [
-          BoxShadow(blurRadius: 30, color: Color(0x66000000)),
-        ],
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+        boxShadow: const [BoxShadow(blurRadius: 30, color: Color(0x66000000))],
       ),
       child: Row(
         children: [
@@ -210,18 +264,19 @@ class _TopBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'HIPPO OS  /  PRIVATE SANCTUARY',
+                  'HIPPO OS  /  LIVING SANCTUARY',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         letterSpacing: 1.9,
-                        color: const Color(0xFFAFC4B8),
+                        color: accent,
                       ),
                 ),
                 const SizedBox(height: 7),
                 Text(
                   '$animal  ·  $species',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -247,6 +302,11 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(zone, style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Text(
+                worldPulse,
+                style: const TextStyle(fontSize: 10, color: Color(0xFF91A69B)),
+              ),
             ],
           ),
         ],
@@ -256,10 +316,15 @@ class _TopBar extends StatelessWidget {
 }
 
 class _CameraStrip extends StatelessWidget {
-  const _CameraStrip({required this.selected, required this.onSelected});
+  const _CameraStrip({
+    required this.selected,
+    required this.onSelected,
+    required this.accent,
+  });
 
   final SanctuaryCameraMode selected;
   final ValueChanged<SanctuaryCameraMode> onSelected;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -280,9 +345,8 @@ class _CameraStrip extends StatelessWidget {
                 child: FilledButton.tonal(
                   onPressed: () => onSelected(mode),
                   style: FilledButton.styleFrom(
-                    backgroundColor: selected == mode
-                        ? const Color(0xFFE6EFE9)
-                        : const Color(0xFF111817),
+                    backgroundColor:
+                        selected == mode ? accent : const Color(0xFF111817),
                     foregroundColor: selected == mode
                         ? const Color(0xFF07100C)
                         : const Color(0xFFC2CEC7),
@@ -304,9 +368,15 @@ class _CameraStrip extends StatelessWidget {
 }
 
 class _ActionDock extends StatelessWidget {
-  const _ActionDock({required this.onAction});
+  const _ActionDock({
+    required this.onAction,
+    required this.onCustomize,
+    required this.accent,
+  });
 
   final ValueChanged<String> onAction;
+  final VoidCallback onCustomize;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -316,14 +386,30 @@ class _ActionDock extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xE60A0F0E),
         borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
-          _DockButton(label: 'FEED', icon: Icons.restaurant, onTap: () => onAction('feed')),
-          _DockButton(label: 'PET', icon: Icons.pan_tool_alt_outlined, onTap: () => onAction('pet')),
-          _DockButton(label: 'JOURNAL', icon: Icons.auto_stories_outlined, onTap: () => onAction('journal')),
-          _DockButton(label: 'SETTINGS', icon: Icons.tune, onTap: () => onAction('settings')),
+          _DockButton(
+            label: 'FEED',
+            icon: Icons.restaurant,
+            onTap: () => onAction('feed'),
+          ),
+          _DockButton(
+            label: 'PET',
+            icon: Icons.pan_tool_alt_outlined,
+            onTap: () => onAction('pet'),
+          ),
+          _DockButton(
+            label: 'JOURNAL',
+            icon: Icons.auto_stories_outlined,
+            onTap: () => onAction('journal'),
+          ),
+          _DockButton(
+            label: 'CUSTOMISE',
+            icon: Icons.tune,
+            onTap: onCustomize,
+          ),
         ],
       ),
     );
@@ -331,7 +417,11 @@ class _ActionDock extends StatelessWidget {
 }
 
 class _DockButton extends StatelessWidget {
-  const _DockButton({required this.label, required this.icon, required this.onTap});
+  const _DockButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
 
   final String label;
   final IconData icon;
@@ -366,7 +456,10 @@ class _BodycamBadge extends StatelessWidget {
         children: [
           Icon(Icons.circle, size: 9, color: Color(0xFFE2574C)),
           SizedBox(width: 7),
-          Text('BODYCAM', style: TextStyle(fontSize: 11, letterSpacing: 1.2)),
+          Text(
+            'BODYCAM',
+            style: TextStyle(fontSize: 11, letterSpacing: 1.2),
+          ),
         ],
       ),
     );
