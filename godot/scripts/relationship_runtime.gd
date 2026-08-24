@@ -76,7 +76,6 @@ func _evaluate_pair(a_id: String, a, b_id: String, b):
     elif distance > preferred + 1.8 and distance < 8.5 and graph.should_approach(a_id, b_id):
         _encourage_contact(a, b, rel)
     elif close_now and not was_close:
-        # They notice each other even when neither chooses direct social contact.
         if str(a.current_action) in ["idle", "observe", "investigate"]:
             a.current_action = "observe"
             a.action_timer = randf_range(1.6, 3.1)
@@ -149,4 +148,6 @@ func _persist():
         sanctuary.set_relationships(graph.to_dict())
 
 func _pair_key(a_id: String, b_id: String) -> String:
-    return a_id + "::" + b_id if a_id < b_id else b_id + "::" + a_id
+    var ids = [a_id, b_id]
+    ids.sort()
+    return str(ids[0]) + "::" + str(ids[1])
