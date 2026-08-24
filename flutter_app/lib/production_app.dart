@@ -219,7 +219,7 @@ class _ProductionShellState extends State<_ProductionShell>
       children: <Widget>[
         const OpenWorldSanctuaryScreen(),
         Positioned(
-          left: 12,
+          right: 12,
           bottom: 12,
           child: SafeArea(
             child: _MenuButton(onPressed: _showSystemMenu),
