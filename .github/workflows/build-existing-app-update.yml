@@ -82,7 +82,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p "$HOME/.config/godot"
+          mkdir -p "$HOME/.config/godot" build
           cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF_SETTINGS
           [gd_resource type="EditorSettings" format=3]
           [resource]
@@ -90,6 +90,7 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF_SETTINGS
           godot --version | grep -q '^4.7.2'
+          "$ANDROID_HOME/platform-tools/adb" start-server || true
 
       - name: Fetch verified runtime assets
         run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
@@ -99,7 +100,9 @@ jobs:
         working-directory: godot
         run: |
           set -euxo pipefail
+          mkdir -p ../build
           rm -rf android
+          "$ANDROID_HOME/platform-tools/adb" start-server || true
           godot --headless --editor --path . --install-android-build-template --quit 2>&1 | tee ../build/godot-install-gradle-template.log
           test -d android/build
           test -f android/build/build.gradle
