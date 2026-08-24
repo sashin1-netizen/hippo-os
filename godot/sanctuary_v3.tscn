@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource path="res://scripts/flutter_runtime_overlay.gd" type="Script" id="1_sanctuary"]
 [ext_resource path="res://scripts/visual_polish.gd" type="Script" id="2_polish"]
@@ -19,6 +19,8 @@
 [ext_resource path="res://scripts/weather_fx.gd" type="Script" id="17_weather_fx"]
 [ext_resource path="res://scripts/interaction_reactions.gd" type="Script" id="18_touch_fx"]
 [ext_resource path="res://scripts/world_prop_realism.gd" type="Script" id="19_prop_realism"]
+[ext_resource path="res://scripts/animal_collision_realism.gd" type="Script" id="20_animal_collision"]
+[ext_resource path="res://scripts/behavior_pacing.gd" type="Script" id="21_behavior_pacing"]
 
 [node name="HippoOSSanctuary" type="Node3D"]
 script = ExtResource("1_sanctuary")
@@ -55,6 +57,12 @@ script = ExtResource("18_touch_fx")
 
 [node name="AnimalSurfaceEffects" type="Node" parent="."]
 script = ExtResource("12_surface_fx")
+
+[node name="AnimalCollisionRealism" type="Node" parent="."]
+script = ExtResource("20_animal_collision")
+
+[node name="BehaviorPacing" type="Node" parent="."]
+script = ExtResource("21_behavior_pacing")
 
 [node name="AmbientLife" type="Node" parent="."]
 script = ExtResource("7_ambient")
