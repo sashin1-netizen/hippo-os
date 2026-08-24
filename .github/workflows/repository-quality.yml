@@ -2,7 +2,7 @@ name: Repository Quality
 
 on:
   push:
-    branches: [main]
+    branches: [main, polish/4k-lifelike-animals]
   pull_request:
     branches: [main]
 
@@ -18,7 +18,7 @@ jobs:
         with:
           lfs: false
 
-      - name: Validate required project files
+      - name: Validate repository roots
         shell: bash
         run: |
           set -euo pipefail
@@ -26,6 +26,8 @@ jobs:
           test -f Source/HippoOS/HippoOS.Build.cs
           test -f Source/HippoOS/HippoOS.cpp
           test -f Config/DefaultGame.ini
+          test -f godot/project.godot
+          test -f godot/main.tscn
           test -f .gitattributes
           test -f .gitignore
 
@@ -48,3 +50,7 @@ jobs:
         run: |
           grep -q '^\*.uasset filter=lfs' .gitattributes
           grep -q '^\*.umap filter=lfs' .gitattributes
+
+      - name: Validate Hippo OS gameplay candidate contract
+        shell: bash
+        run: bash .github/scripts/verify-gameplay-candidate.sh "$GITHUB_WORKSPACE"
