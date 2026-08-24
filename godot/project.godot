@@ -1,6 +1,6 @@
 [application]
 config/name="Hippo OS"
-config/version="0.2.4-update"
+config/version="0.2.5-reference"
 config/icon="res://assets/branding/hippo_icon.svg"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
@@ -35,13 +35,13 @@ PhoneVisualHotfix="*res://scripts/phone_visual_hotfix.gd"
 [display]
 
 [display/window]
-size/viewport_width=1280
-size/viewport_height=720
-size/window_width_override=1280
-size/window_height_override=720
+size/viewport_width=720
+size/viewport_height=1280
+size/window_width_override=720
+size/window_height_override=1280
 stretch/mode="canvas_items"
 stretch/aspect="expand"
-handheld/orientation=0
+handheld/orientation=1
 
 [rendering]
 renderer/rendering_method="mobile"
