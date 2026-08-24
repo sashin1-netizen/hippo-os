@@ -40,6 +40,8 @@ renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
+limits/opengl/max_lights_per_object=2
+limits/opengl/max_renderable_lights=8
 
 [input_devices]
 pointing/emulate_touch_from_mouse=true
