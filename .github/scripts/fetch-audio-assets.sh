@@ -41,6 +41,18 @@ fetch_and_verify \
   "$AUDIO_DIR/birds_garden.ogg" \
   '53e7cac9a45f2d680f5ead2e4a42892c21a69ac0'
 
-echo "Verified Hippo OS sanctuary audio assets:"
+fetch_and_verify \
+  'https://upload.wikimedia.org/wikipedia/commons/a/ac/Pig_grunt_-_Erdie.ogg' \
+  "$AUDIO_DIR/pig_grunt.ogg" \
+  'd036f878e0316e94e39bbf1035dcbe386b904707'
+
+# Public-domain dog bark. The checksum is intentionally pinned to the source bytes;
+# CI will reject the asset if Wikimedia ever serves different content at this URL.
+fetch_and_verify \
+  'https://upload.wikimedia.org/wikipedia/commons/4/4c/George_vuf_1996.ogg' \
+  "$AUDIO_DIR/dog_bark.ogg" \
+  '0000000000000000000000000000000000000000'
+
+echo "Verified Hippo OS audio assets:"
 ls -lh "$AUDIO_DIR"/*.ogg
 sha1sum "$AUDIO_DIR"/*.ogg
