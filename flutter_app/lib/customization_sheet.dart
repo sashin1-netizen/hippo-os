@@ -50,7 +50,8 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
   void _setAnimalName(String rawName) {
     final name = rawName.trim();
     if (name.isEmpty) return;
-    _setAnimal(animal.copyWith(name: name.substring(0, name.length.clamp(0, 24))));
+    final end = name.length > 24 ? 24 : name.length;
+    _setAnimal(animal.copyWith(name: name.substring(0, end)));
   }
 
   @override
