@@ -5,9 +5,11 @@ const WORLD_HALF_Z := 30.0
 const WALK_SPEED := 3.2
 const SPRINT_SPEED := 5.2
 const INTERACT_DISTANCE := 3.4
+const BODY_CENTER_HEIGHT := 0.84
 
 var host
 var environment_builder
+var player_body: CharacterBody3D
 var move_input := Vector2.ZERO
 var roam_position := Vector3(0.0, 1.7, 10.0)
 var roam_yaw := 0.0
@@ -19,15 +21,31 @@ var sprinting := false
 
 func _ready():
     process_priority = 80
-    for i in range(6):
+    for i in range(7):
         await get_tree().process_frame
     host = get_parent()
     if host == null:
         return
     environment_builder = host.get_node_or_null("OpenWorldEnvironment")
-    var y = _ground_height(roam_position.x, roam_position.z)
-    roam_position.y = y + 1.68
+    _build_player_body()
+    var ground = _ground_height(roam_position.x, roam_position.z)
+    roam_position.y = ground + 1.72
+    player_body.global_position = Vector3(roam_position.x, ground + BODY_CENTER_HEIGHT, roam_position.z)
     initialized = true
+
+func _build_player_body():
+    player_body = CharacterBody3D.new()
+    player_body.name = "CaretakerCollisionBody"
+    player_body.collision_layer = 4
+    player_body.collision_mask = 3
+    player_body.safe_margin = 0.04
+    var collision := CollisionShape3D.new()
+    var capsule := CapsuleShape3D.new()
+    capsule.radius = 0.32
+    capsule.height = 1.62
+    collision.shape = capsule
+    player_body.add_child(collision)
+    host.add_child(player_body)
 
 func set_move_input(x: float, y: float):
     move_input = Vector2(clamp(x, -1.0, 1.0), clamp(y, -1.0, 1.0))
@@ -42,6 +60,8 @@ func set_sprinting(value: bool):
 
 func stop_move():
     move_input = Vector2.ZERO
+    if player_body != null:
+        player_body.velocity = Vector3.ZERO
 
 func is_free_roam() -> bool:
     if host == null:
@@ -73,6 +93,11 @@ func snapshot() -> Dictionary:
         "world_half_z": WORLD_HALF_Z
     }
 
+func _physics_process(delta):
+    if not initialized or host == null or player_body == null or not is_free_roam():
+        return
+    _move_physical_body(delta)
+
 func _process(delta):
     if not initialized or host == null:
         return
@@ -80,7 +105,7 @@ func _process(delta):
     if not is_free_roam():
         return
     _update_look(delta)
-    _update_roam_position(delta)
+    _sync_roam_from_body()
     _apply_camera(delta)
 
 func _update_look(delta):
@@ -93,22 +118,28 @@ func _update_look(delta):
         roam_pitch = clamp(roam_pitch - look_velocity.y * sensitivity * 0.72, -0.72, 0.55)
     look_velocity = look_velocity.lerp(Vector2.ZERO, min(delta * 16.0, 1.0))
 
-func _update_roam_position(delta):
-    if move_input.length_squared() < 0.0005:
-        return
+func _move_physical_body(delta):
     var forward = Vector3(-sin(roam_yaw), 0.0, -cos(roam_yaw)).normalized()
     var right = Vector3(forward.z, 0.0, -forward.x).normalized()
-    var direction = (right * move_input.x + forward * -move_input.y)
+    var direction = right * move_input.x + forward * -move_input.y
     if direction.length_squared() > 1.0:
         direction = direction.normalized()
     var speed = SPRINT_SPEED if sprinting else WALK_SPEED
-    var next = roam_position + direction * speed * delta
-    next.x = clamp(next.x, -WORLD_HALF_X, WORLD_HALF_X)
-    next.z = clamp(next.z, -WORLD_HALF_Z, WORLD_HALF_Z)
-    var ground = _ground_height(next.x, next.z)
+    player_body.velocity = Vector3(direction.x * speed, 0.0, direction.z * speed)
+    player_body.move_and_slide()
+    var p = player_body.global_position
+    p.x = clamp(p.x, -WORLD_HALF_X, WORLD_HALF_X)
+    p.z = clamp(p.z, -WORLD_HALF_Z, WORLD_HALF_Z)
+    p.y = _ground_height(p.x, p.z) + BODY_CENTER_HEIGHT
+    player_body.global_position = p
+
+func _sync_roam_from_body():
+    if player_body == null:
+        return
+    var p = player_body.global_position
     var eye_height = 1.52 if str(host.get("camera_mode")) == "bodycam" else 1.72
-    next.y = ground + eye_height
-    roam_position = roam_position.lerp(next, min(delta * 12.0, 1.0))
+    var target = Vector3(p.x, _ground_height(p.x, p.z) + eye_height, p.z)
+    roam_position = roam_position.lerp(target, 0.62)
 
 func _apply_camera(delta):
     var camera = host.get("camera")
@@ -124,7 +155,7 @@ func _apply_camera(delta):
     var sway = Vector3.ZERO
     if mode == "bodycam" and not reduced_motion:
         var movement = move_input.length()
-        var amp = lerp(0.004, 0.036, movement)
+        var amp = lerp(0.004, 0.034, movement)
         sway = Vector3(sin(bodycam_phase) * amp, abs(cos(bodycam_phase * 2.0)) * amp * 0.42, 0.0)
 
     var forward = Vector3(-sin(roam_yaw) * cos(roam_pitch), sin(roam_pitch), -cos(roam_yaw) * cos(roam_pitch)).normalized()
