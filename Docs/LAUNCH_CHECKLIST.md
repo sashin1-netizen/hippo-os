@@ -1,111 +1,130 @@
 # Hippo OS 1.0 Launch Checklist
 
-Branch: `release/android-v1-rc`
+Branch: `release/flutter-4k-v1`
 
 ## Distribution hold — mandatory
 - [x] Internal APK builds may be generated for CI validation only.
-- [x] No APK, AAB, store package, or download link is to be handed to the user as a release candidate while any launch gate below remains open.
-- [x] The next user-facing APK must be the launch-ready build after all applicable product, content, legal, store, and device-QA gates are green.
-- [x] Placeholder / primitive animal models are explicitly disallowed from the launch build.
-- [x] Placeholder / silent audio systems are explicitly disallowed from the launch build.
-- [x] Store-facing screenshots and marketing assets must be captured from the final production build, not a prototype or internal RC.
+- [x] No APK, AAB, store package, or download link is handed to the user while any launch gate remains open.
+- [x] The next user-facing APK must be the launch-ready build.
+- [x] Placeholder animal geometry and silent placeholder audio are forbidden.
+- [x] Final screenshots must come from the final production hybrid build.
 
-## Build / platform
-- [x] Dedicated release-candidate branch
-- [x] Godot 4.7.2 project target
-- [x] Google Play AAB targets Android 16 / API 36
-- [x] ARM64 APK preset
-- [x] Google Play AAB preset scaffold
-- [x] Android CI import/parser/smoke-test workflow
-- [x] Android ETC2/ASTC texture import enabled
-- [x] Android-compatible PNG boot splash
-- [x] App icon and branded startup assets
-- [x] CI APK artifact confirmed green — run `32673021892`
-- [x] Godot import/parser gate passed
-- [x] Release self-test passed
-- [x] Sanctuary headless smoke-launch passed
-- [x] Standalone APK export passed
-- [ ] Release signing key configured outside repository
-- [ ] Release AAB exported and validated in Play Console
+## Production architecture
+- [x] Flutter 3.44.7 selected as the user-facing application shell.
+- [x] Godot 4.7.2 retained as the embedded real-time 3D sanctuary renderer.
+- [x] Android PlatformView host implemented for the Godot surface.
+- [x] Bidirectional Flutter ↔ Godot bridge implemented.
+- [x] Android package remains `com.sashin.hippoos`.
+- [x] Android 16 / API 36 target retained.
+- [x] Hybrid CI validates animal generation, audio generation, Godot parse/smoke, Flutter analysis/tests and Android build.
+- [ ] Hybrid CI fully green on current release head.
+- [ ] Release signing key configured outside repository.
+- [ ] Release AAB exported and validated in Play Console.
 
-## Core app
-- [x] Three selectable animals
-- [x] Species-specific behaviour profiles
-- [x] Persistent needs, emotion, bond and preferences
-- [x] Offline progression
-- [x] Journal foundation
-- [x] Rename animals
-- [x] Settings persistence
-- [x] Master / animal / ambience / UI volume buses
-- [x] Haptics toggle
-- [x] Reduced-motion option
-- [x] Dynamic day/night presentation
-- [x] Android background / close saving
-- [x] Corrupt-save recovery
-- [x] First-run onboarding
-- [x] Destructive reset flow with confirmation
-- [x] Accessibility text-size control
-- [x] About / Privacy screen in app
-- [x] Version display
+## Camera / POV
+- [x] Cinematic view.
+- [x] Caretaker view.
+- [x] Bodycam view.
+- [x] Overhead view.
+- [x] Bodycam reduced-motion stabilization behavior.
+- [ ] Bodycam camera clipping/occlusion verified on-device in all habitats.
+- [ ] Optional device motion/gyro enhancement evaluated after baseline QA.
 
-## Production animal quality
-- [ ] Original production-quality baby pygmy hippo model
-- [ ] Production pig model
-- [ ] Production Chinese Shar-Pei model
-- [ ] Mobile-optimised PBR materials
-- [ ] Proper skeletons / rigs
-- [ ] Walk / turn / idle / rest / eat animation coverage
-- [ ] Species-specific signature animation coverage
-- [ ] Body-region interaction animation
-- [ ] Wetness / mud presentation for hippo and pig
+## Real-world time
+- [x] Device IANA timezone source implemented in Flutter.
+- [x] Local ISO time, UTC offset, hour/minute and epoch are bridged to Godot.
+- [x] Sync occurs at startup.
+- [x] Sync occurs on resume.
+- [x] Sync refreshes once per minute while active.
+- [x] Sanctuary day/night presentation uses bridged local time with device-local fallback.
+- [ ] Travel/timezone-change QA completed on-device.
+
+## 4K quality gate
+- [x] 4K launch contract documented in `Docs/FLUTTER_4K_LAUNCH_SPEC.md`.
+- [x] Godot production base target raised to 3840 × 2160 and fixed 1280 × 720 stretch ceiling removed from the hybrid path.
+- [x] Flutter UI is vector/resolution-independent and renders at device-native density.
+- [x] Mobile texture master ceiling set at 4096 × 4096 where appropriate.
+- [ ] 3840 × 2160 capture/photo path validated.
+- [ ] Close Bodycam framing passes asset-quality review at 4K capture resolution.
+- [ ] 4K-capable runtime performance verified on appropriate hardware.
+- [ ] Dynamic performance fallback verified without visibly degrading launch-quality assets.
+
+## Core sanctuary
+- [x] Pygmy hippo, pig and Chinese Shar-Pei are the locked animal roster.
+- [x] Species-specific behavior profiles.
+- [x] Persistent needs, emotion, bond and preferences.
+- [x] Offline progression.
+- [x] Journal data foundation.
+- [x] Rename support in simulation.
+- [x] Persistent settings.
+- [x] Independent audio buses.
+- [x] Haptics and reduced-motion settings.
+- [x] Save/background/corrupt-save handling.
+- [ ] Journal UI fully migrated to Flutter.
+- [ ] Settings/rename UI fully migrated to Flutter.
+- [ ] First-run onboarding fully migrated to Flutter.
+- [ ] About/Privacy/Credits fully migrated to Flutter.
+
+## Animals / animation
+- [x] Original Hippo OS model specifications for Mochi, Truffle and Bao.
+- [x] Strict procedural model compiler/geometry validation in CI.
+- [x] 31-joint skinned rigs generated for all three animals.
+- [x] Idle/move/eat/rest base animation clips generated for all three animals.
+- [ ] Final visual art-direction review in actual Flutter hybrid build.
+- [ ] Species-specific signature animation coverage.
+- [ ] Body-region interaction animation.
+- [ ] Wetness/mud presentation for hippo and pig.
+- [ ] Final mobile material/PBR-quality review.
 
 ## Audio
-- [x] Independent audio buses and settings architecture
-- [ ] Licensed production animal audio files bundled
-- [ ] Sanctuary ambience bundled
-- [ ] Contextual 3D spatial playback
-- [ ] Footsteps, splashes, mud, eating, drinking and UI sounds verified
-- [ ] Attribution screen for CC BY audio where required
+- [x] Original sanctuary ambience and interaction foley generation.
+- [x] Licensed animal recording acquisition integrated into CI.
+- [x] Contextual 3D animal playback architecture.
+- [x] Footstep/water/mud/eating/drinking/UI sound architecture.
+- [x] Credits/license data present in release source.
+- [ ] All audio imports pass the current hybrid gate without warnings/errors.
+- [ ] Audio and spatialization verified on-device.
 
 ## Environment
-- [x] Separate habitat zones
-- [x] Pond, mud and basic vegetation
-- [x] Dynamic lighting
-- [ ] Production water shader / ripples
-- [ ] Splash particles
-- [ ] Mud interaction / tracks
-- [ ] Production foliage / rocks / shelter enrichment
-- [ ] Camera collision / occlusion pass
+- [x] Separate habitat zones.
+- [x] Pond, mud, vegetation and dynamic lighting foundation.
+- [ ] Production water shader/ripple pass.
+- [ ] Splash particles.
+- [ ] Mud interaction/tracks.
+- [ ] Production foliage/rocks/shelter enrichment.
+- [ ] Camera collision/occlusion pass.
+- [ ] Final day/night readability review at real device time.
 
-## Legal / store
-- [x] Privacy-policy draft
-- [x] Play listing draft
-- [x] Asset provenance register
-- [ ] Final support/privacy contact added
-- [ ] Final icon exported to 512x512 PNG
-- [ ] 1280x720 feature graphic from final app art
-- [ ] Four real 1920x1080 screenshots captured from final production build
-- [ ] Content rating completed in Play Console
-- [ ] Data safety completed in Play Console
-- [ ] Store category / target audience confirmed
+## Store/legal
+- [x] Privacy-policy draft.
+- [x] Play listing draft.
+- [x] Asset provenance register.
+- [ ] Final support/privacy contact added.
+- [ ] Final 512 × 512 Play icon exported.
+- [ ] Google Play 1024 × 500 feature graphic exported from master artwork.
+- [ ] Four final production screenshots captured, up to 3840 px on the longest side.
+- [ ] Content rating completed in Play Console.
+- [ ] Data safety completed in Play Console.
+- [ ] Store category/target audience confirmed.
 
-## Device QA
-- [ ] Installs as standalone APK without Godot
-- [ ] Launches from home-screen icon
-- [ ] Cold launch passes 10 times
-- [ ] Background / foreground passes 10 cycles
-- [ ] Save survives forced app close
-- [ ] Settings survive restart
-- [ ] All three animals remain selectable after restart
-- [ ] Feed / pet / rename / journal pass
-- [ ] Back button pass
-- [ ] Rotation / landscape lock pass
-- [ ] No overlapping UI on target phone
-- [ ] Performance acceptable in all three habitats
-- [ ] Audio and haptics pass
-- [ ] 30-minute soak test without crash
+## Physical device QA
+- [ ] Flutter hybrid installs without Godot editor.
+- [ ] Launches from home-screen icon.
+- [ ] Embedded Godot view appears correctly behind Flutter UI.
+- [ ] Flutter ↔ Godot camera/action/status bridge passes.
+- [ ] Cold launch passes 10 times.
+- [ ] Background/foreground passes 10 cycles.
+- [ ] Save survives forced app close.
+- [ ] Settings survive restart.
+- [ ] All three animals remain selectable after restart.
+- [ ] Feed/pet/rename/journal pass.
+- [ ] Android back navigation pass.
+- [ ] Landscape lock pass.
+- [ ] No UI overlap/cutoff on target phone.
+- [ ] Bodycam/cinematic/caretaker/overhead all pass.
+- [ ] Real timezone behavior passes.
+- [ ] Performance acceptable in all habitats.
+- [ ] Audio/haptics pass.
+- [ ] 30-minute soak test without crash.
 
-## Public Google Play gate
-For a new personal Play Console account created after 13 November 2023, production access may require a closed test with at least 12 opted-in testers continuously for 14 days. This is an external store requirement and cannot be completed by source-code changes alone.
-
-The app is not declared production-ready until every applicable unchecked item above is either passed or explicitly removed from version 1.0 scope with a documented reason. No user-facing APK is distributed before that condition is met.
+The app is not declared launch-ready until every applicable unchecked item is passed or explicitly removed from 1.0 scope with a documented reason. No user-facing APK is distributed before that condition is met.
