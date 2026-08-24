@@ -1,6 +1,6 @@
 extends RefCounted
 
-const SAVE_VERSION = 5
+const SAVE_VERSION = 6
 
 var animals = {}
 var relationships = {}
@@ -36,7 +36,11 @@ var customization = {
     "camera": {
         "bodycam_motion": 0.45
     },
-    "animals": {}
+    "animals": {
+        "hippo_01": {"name": "Mochi"},
+        "pig_01": {"name": "Truffle"},
+        "sharpei_01": {"name": "Bao"}
+    }
 }
 var journal = []
 var last_save_unix = 0
@@ -165,6 +169,36 @@ func _migrate(data, version):
     if version < 5:
         if not result.has("customization") or typeof(result.get("customization", {})) != TYPE_DICTIONARY:
             result["customization"] = customization.duplicate(true)
+
+    if version < 6:
+        var migrated_customization = result.get("customization", customization.duplicate(true))
+        if typeof(migrated_customization) != TYPE_DICTIONARY:
+            migrated_customization = customization.duplicate(true)
+        var custom_animals = migrated_customization.get("animals", {})
+        if typeof(custom_animals) != TYPE_DICTIONARY:
+            custom_animals = {}
+        var saved_animals = result.get("animals", {})
+        if typeof(saved_animals) != TYPE_DICTIONARY:
+            saved_animals = {}
+        var default_names = {
+            "hippo_01": "Mochi",
+            "pig_01": "Truffle",
+            "sharpei_01": "Bao"
+        }
+        for animal_id in default_names.keys():
+            var entry = custom_animals.get(animal_id, {})
+            if typeof(entry) != TYPE_DICTIONARY:
+                entry = {}
+            if not entry.has("name") or str(entry.get("name", "")).strip_edges().is_empty():
+                var saved_state = saved_animals.get(animal_id, {})
+                var fallback_name = str(default_names[animal_id])
+                if typeof(saved_state) == TYPE_DICTIONARY:
+                    entry["name"] = str(saved_state.get("animal_name", fallback_name))
+                else:
+                    entry["name"] = fallback_name
+            custom_animals[animal_id] = entry
+        migrated_customization["animals"] = custom_animals
+        result["customization"] = migrated_customization
 
     result["save_version"] = SAVE_VERSION
     return result
