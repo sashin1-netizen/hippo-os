@@ -82,7 +82,7 @@ func _build_water() -> void:
     var shader: Shader = Shader.new()
     shader.code = """
 shader_type spatial;
-render_mode blend_mix, depth_draw_alpha_prepass, cull_disabled;
+render_mode blend_mix, depth_prepass_alpha, cull_disabled;
 void vertex() {
     float wave_a = sin(VERTEX.x * 5.0 + TIME * 1.35);
     float wave_b = cos(VERTEX.z * 6.0 - TIME * 1.05);

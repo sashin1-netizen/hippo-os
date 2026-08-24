@@ -127,6 +127,8 @@ jobs:
           test -f scripts/atmosphere_polish.gd
           test -f scripts/visual_sanctuary_polish.gd
           test -f scripts/character_motion_polish.gd
+          test -f scripts/production_asset_loader.gd
+          test -f scripts/lifelike_rendering.gd
           test -s assets/audio/forest_ambience.ogg
           test -s assets/audio/water_stream.ogg
           test -s assets/audio/birds_garden.ogg
@@ -134,6 +136,8 @@ jobs:
           grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
           grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
           grep -q 'DeviceDiagnostics="\*res://scripts/device_diagnostics.gd"' project.godot
+          grep -q 'ProductionAssetLoader="\*res://scripts/production_asset_loader.gd"' project.godot
+          grep -q 'LifelikeRendering="\*res://scripts/lifelike_rendering.gd"' project.godot
           grep -q 'config/version="0.2.2-personal"' project.godot
           grep -q 'stretch/aspect="expand"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
@@ -150,8 +154,8 @@ jobs:
 
           fail_on_godot_errors() {
             local log="$1"
-            if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling' "$log"; then
-              echo "Godot script/autoload failure detected in $log" >&2
+            if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling|SHADER ERROR:|Shader compilation failed' "$log"; then
+              echo "Godot script/autoload/shader failure detected in $log" >&2
               cat "$log" >&2
               exit 1
             fi
@@ -168,8 +172,9 @@ jobs:
         run: |
           set -euxo pipefail
           godot --headless --verbose --path . --export-release Android "$GITHUB_WORKSPACE/build/HippoOS-Personal.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export.log"
-          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling' "$GITHUB_WORKSPACE/build/godot-export.log"; then
-            echo 'Godot export contained script/autoload failures' >&2
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export.log"; then
+            echo 'Godot export contained script/autoload/shader failures' >&2
+            cat "$GITHUB_WORKSPACE/build/godot-export.log" >&2
             exit 1
           fi
           test -s "$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
@@ -299,4 +304,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS 0.2.2 Personal Android APK" \
-            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. ARM64 + x86_64. Strict Godot compile/export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."
+            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. ARM64 + x86_64. Strict Godot script/autoload/shader compile and export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."

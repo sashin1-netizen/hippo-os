@@ -21,6 +21,8 @@ CompanionRoster="*res://scripts/companion_roster.gd"
 CompanionAudio="*res://scripts/companion_audio.gd"
 AnimalArtPolish="*res://scripts/animal_art_polish.gd"
 PremiumExperience="*res://scripts/premium_experience.gd"
+ProductionAssetLoader="*res://scripts/production_asset_loader.gd"
+LifelikeRendering="*res://scripts/lifelike_rendering.gd"
 
 [display]
 
