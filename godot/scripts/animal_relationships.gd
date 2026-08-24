@@ -59,8 +59,6 @@ func from_dict(data):
         relationships = data.duplicate(true)
 
 func _pair_key(a_id, b_id):
-    var a = str(a_id)
-    var b = str(b_id)
-    if a < b:
-        return a + "::" + b
-    return b + "::" + a
+    var ids = [str(a_id), str(b_id)]
+    ids.sort()
+    return str(ids[0]) + "::" + str(ids[1])
