@@ -1,4 +1,4 @@
-extends "res://scripts/sanctuary_v3.gd"
+extends "res://scripts/sanctuary_runtime_v4.gd"
 
 const APP_VERSION = "1.0.0-production-candidate"
 const PRIVACY_SUMMARY = "Hippo OS stores sanctuary progress locally on this device. The launch build has no ads, no analytics, no account requirement, and no personal-data transmission."
