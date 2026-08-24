@@ -243,6 +243,11 @@ func _apply_actor_customization(actor, data):
     var state = actor.get("state")
     if state == null:
         return
+
+    var requested_name = str(data.get("name", "")).strip_edges()
+    if not requested_name.is_empty():
+        state.animal_name = requested_name.substr(0, min(requested_name.length(), 24))
+
     var temperament = state.temperament
     if typeof(temperament) != TYPE_DICTIONARY:
         return
