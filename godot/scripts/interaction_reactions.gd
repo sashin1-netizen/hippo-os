@@ -1,10 +1,13 @@
 extends Node
 
+const REACTION_BONES := ["NeckB", "Neck2", "HeadRoot", "Skull", "Spine", "Chest"]
+
 var host
 var last_event_fingerprint := ""
 var reactions := {}
 var poll_timer := 0.0
 var skeletons := {}
+var bone_bases := {}
 
 func _ready():
     process_priority = 95
@@ -39,7 +42,17 @@ func _prepare_models():
         model.set_meta("touch_base_rz", float(model.rotation_degrees.z))
         var skeleton = _find_skeleton(model)
         if skeleton != null:
-            skeletons[str(animal_id)] = skeleton
+            var key = str(animal_id)
+            skeletons[key] = skeleton
+            bone_bases[key] = _capture_bone_bases(skeleton)
+
+func _capture_bone_bases(skeleton: Skeleton3D) -> Dictionary:
+    var bases := {}
+    for bone_name in REACTION_BONES:
+        var index = skeleton.find_bone(bone_name)
+        if index >= 0:
+            bases[bone_name] = skeleton.get_bone_pose_rotation(index)
+    return bases
 
 func _find_skeleton(node):
     if node is Skeleton3D:
@@ -94,11 +107,16 @@ func _animate_reactions(delta):
         var model = actor.get("production_model")
         if not model is Node3D:
             continue
+        var key = str(animal_id)
         var base_rx = float(model.get_meta("touch_base_rx", 0.0))
         var base_rz = float(model.get_meta("touch_base_rz", 0.0))
+        var skeleton = skeletons.get(key, null)
+
         if not reactions.has(animal_id):
             model.rotation_degrees.x = lerp(float(model.rotation_degrees.x), base_rx, min(delta * 6.0, 1.0))
             model.rotation_degrees.z = lerp(float(model.rotation_degrees.z), base_rz, min(delta * 6.0, 1.0))
+            if skeleton is Skeleton3D:
+                _reset_reaction_bones(key, skeleton, min(delta * 12.0, 1.0))
             continue
 
         var reaction = reactions[animal_id]
@@ -111,10 +129,12 @@ func _animate_reactions(delta):
         var accepted = bool(reaction.get("accepted", true))
         var region = str(reaction.get("region", "forehead"))
 
-        var skeleton = skeletons.get(str(animal_id), null)
         var skeletal_applied = false
         if skeleton is Skeleton3D:
-            skeletal_applied = _apply_skeletal_reaction(skeleton, region, accepted, pulse)
+            # Start every reaction frame from the captured neutral pose. This keeps
+            # touch offsets temporary and prevents cumulative neck/head deformation.
+            _reset_reaction_bones(key, skeleton, 1.0)
+            skeletal_applied = _apply_skeletal_reaction(key, skeleton, region, accepted, pulse)
 
         # Whole-model movement remains a deliberately tiny secondary weight shift.
         # It is also the fallback for any future rig that lacks the named production bones.
@@ -137,39 +157,56 @@ func _animate_reactions(delta):
         model.rotation_degrees.z = lerp(float(model.rotation_degrees.z), target_rz, min(delta * 14.0, 1.0))
         if remaining <= 0.0:
             reactions.erase(animal_id)
+            if skeleton is Skeleton3D:
+                _reset_reaction_bones(key, skeleton, 1.0)
 
-func _apply_skeletal_reaction(skeleton: Skeleton3D, region: String, accepted: bool, pulse: float) -> bool:
+func _apply_skeletal_reaction(animal_id: String, skeleton: Skeleton3D, region: String, accepted: bool, pulse: float) -> bool:
     var applied = false
     if accepted:
         match region:
             "forehead", "snout":
-                applied = _offset_bone(skeleton, "NeckB", Vector3(1, 0, 0), deg_to_rad(4.0) * pulse) or applied
-                applied = _offset_bone(skeleton, "Neck2", Vector3(1, 0, 0), deg_to_rad(4.5) * pulse) or applied
-                applied = _offset_bone(skeleton, "HeadRoot", Vector3(1, 0, 0), deg_to_rad(5.0) * pulse) or applied
-                applied = _offset_bone(skeleton, "Skull", Vector3(1, 0, 0), deg_to_rad(-2.4) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "NeckB", Vector3(1, 0, 0), deg_to_rad(4.0) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Neck2", Vector3(1, 0, 0), deg_to_rad(4.5) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "HeadRoot", Vector3(1, 0, 0), deg_to_rad(5.0) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Skull", Vector3(1, 0, 0), deg_to_rad(-2.4) * pulse) or applied
             "cheek":
-                applied = _offset_bone(skeleton, "Neck2", Vector3(0, 0, 1), deg_to_rad(4.8) * pulse) or applied
-                applied = _offset_bone(skeleton, "HeadRoot", Vector3(0, 1, 0), deg_to_rad(4.0) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Neck2", Vector3(0, 0, 1), deg_to_rad(4.8) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "HeadRoot", Vector3(0, 1, 0), deg_to_rad(4.0) * pulse) or applied
             "ears":
-                applied = _offset_bone(skeleton, "Neck2", Vector3(0, 0, 1), deg_to_rad(5.5) * pulse) or applied
-                applied = _offset_bone(skeleton, "Skull", Vector3(0, 1, 0), deg_to_rad(-3.8) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Neck2", Vector3(0, 0, 1), deg_to_rad(5.5) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Skull", Vector3(0, 1, 0), deg_to_rad(-3.8) * pulse) or applied
             "back":
-                applied = _offset_bone(skeleton, "Spine", Vector3(1, 0, 0), deg_to_rad(-2.4) * pulse) or applied
-                applied = _offset_bone(skeleton, "Chest", Vector3(1, 0, 0), deg_to_rad(2.8) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Spine", Vector3(1, 0, 0), deg_to_rad(-2.4) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Chest", Vector3(1, 0, 0), deg_to_rad(2.8) * pulse) or applied
             "belly":
-                applied = _offset_bone(skeleton, "Spine", Vector3(0, 0, 1), deg_to_rad(2.5) * pulse) or applied
-                applied = _offset_bone(skeleton, "Chest", Vector3(1, 0, 0), deg_to_rad(3.2) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Spine", Vector3(0, 0, 1), deg_to_rad(2.5) * pulse) or applied
+                applied = _offset_bone(animal_id, skeleton, "Chest", Vector3(1, 0, 0), deg_to_rad(3.2) * pulse) or applied
     else:
-        applied = _offset_bone(skeleton, "NeckB", Vector3(1, 0, 0), deg_to_rad(-7.0) * pulse) or applied
-        applied = _offset_bone(skeleton, "Neck2", Vector3(0, 1, 0), deg_to_rad(6.0) * pulse) or applied
-        applied = _offset_bone(skeleton, "HeadRoot", Vector3(0, 0, 1), deg_to_rad(4.5) * pulse) or applied
+        applied = _offset_bone(animal_id, skeleton, "NeckB", Vector3(1, 0, 0), deg_to_rad(-7.0) * pulse) or applied
+        applied = _offset_bone(animal_id, skeleton, "Neck2", Vector3(0, 1, 0), deg_to_rad(6.0) * pulse) or applied
+        applied = _offset_bone(animal_id, skeleton, "HeadRoot", Vector3(0, 0, 1), deg_to_rad(4.5) * pulse) or applied
     return applied
 
-func _offset_bone(skeleton: Skeleton3D, bone_name: String, axis: Vector3, radians: float) -> bool:
+func _offset_bone(animal_id: String, skeleton: Skeleton3D, bone_name: String, axis: Vector3, radians: float) -> bool:
     var index = skeleton.find_bone(bone_name)
     if index < 0:
         return false
-    var current = skeleton.get_bone_pose_rotation(index)
+    var bases = bone_bases.get(animal_id, {})
+    if typeof(bases) != TYPE_DICTIONARY or not bases.has(bone_name):
+        return false
+    var base: Quaternion = bases[bone_name]
     var offset = Quaternion(axis.normalized(), radians)
-    skeleton.set_bone_pose_rotation(index, current * offset)
+    skeleton.set_bone_pose_rotation(index, base * offset)
     return true
+
+func _reset_reaction_bones(animal_id: String, skeleton: Skeleton3D, weight: float):
+    var bases = bone_bases.get(animal_id, {})
+    if typeof(bases) != TYPE_DICTIONARY:
+        return
+    for bone_name in bases.keys():
+        var index = skeleton.find_bone(str(bone_name))
+        if index < 0:
+            continue
+        var base: Quaternion = bases[bone_name]
+        var current = skeleton.get_bone_pose_rotation(index)
+        skeleton.set_bone_pose_rotation(index, current.slerp(base, clamp(weight, 0.0, 1.0)))
