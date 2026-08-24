@@ -48,6 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          python3 Tools/augment_model_animations.py
           rm -rf /tmp/anyCreature
           mkdir -p /tmp/anyCreature
           git -C /tmp/anyCreature init
@@ -76,6 +77,12 @@ jobs:
           test -s godot/assets/audio/mud_squelch.wav
           test -s godot/assets/audio/ui_click.wav
           test -s godot/assets/audio/sanctuary_ambience.wav
+          test -s godot/assets/textures/leafy_grass_diff_4k.jpg
+          test -s godot/assets/textures/leafy_grass_nor_gl_4k.jpg
+          test -s godot/assets/textures/leafy_grass_rough_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_diff_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_nor_gl_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_rough_4k.jpg
 
       - name: Download licensed authentic animal recordings
         shell: bash
@@ -117,6 +124,7 @@ jobs:
           path: |
             godot/assets/models/*
             godot/assets/audio/*
+            godot/assets/textures/*
           if-no-files-found: error
           retention-days: 14
 
