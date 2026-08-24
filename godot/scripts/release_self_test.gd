@@ -38,6 +38,7 @@ func _check_project_files():
         "res://scripts/environment_pbr.gd",
         "res://scripts/animal_render_v2.gd",
         "res://scripts/animal_motion_v3.gd",
+        "res://scripts/ambient_life.gd",
         "res://assets/models/mochi_pygmy_hippo.glb",
         "res://assets/models/truffle_pig.glb",
         "res://assets/models/bao_shar_pei.glb",
@@ -75,7 +76,8 @@ func _check_runtime_modules():
         "res://scripts/environment_v2.gd",
         "res://scripts/environment_pbr.gd",
         "res://scripts/animal_render_v2.gd",
-        "res://scripts/animal_motion_v3.gd"
+        "res://scripts/animal_motion_v3.gd",
+        "res://scripts/ambient_life.gd"
     ]
     for script_path in scripts:
         var script_resource = load(script_path)
