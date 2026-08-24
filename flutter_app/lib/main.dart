@@ -9,8 +9,13 @@ import 'customization_sheet.dart';
 import 'customization_state.dart';
 import 'device_time_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setPreferredOrientations(<DeviceOrientation>[
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
   runApp(const HippoOsApp());
 }
 
@@ -58,6 +63,7 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
   String _zone = 'LOCAL TIME';
   String _worldPulse = 'Living world starting';
   String _lastCustomizationJson = '';
+  bool _hudVisible = true;
   StreamSubscription<dynamic>? _eventSubscription;
   Timer? _clockSyncTimer;
 
@@ -86,7 +92,10 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _syncRealTime();
+    if (state == AppLifecycleState.resumed) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      _syncRealTime();
+    }
   }
 
   Future<void> _syncRealTime() async {
@@ -195,56 +204,90 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.54),
+                        Colors.black.withValues(alpha: 0.25),
                         Colors.transparent,
-                        Colors.black.withValues(alpha: 0.68),
+                        Colors.black.withValues(alpha: 0.38),
                       ],
-                      stops: const [0.0, 0.48, 1.0],
+                      stops: const [0.0, 0.52, 1.0],
                     ),
                   ),
                 ),
               ),
             ),
             SafeArea(
-              child: Transform.scale(
-                scale: _customization.interfaceScale,
-                alignment: Alignment.center,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                  child: Column(
+              minimum: const EdgeInsets.all(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxHeight < 650;
+                  final uiScale = _customization.interfaceScale.clamp(0.78, 1.16);
+                  return Stack(
                     children: [
-                      _TopBar(
-                        animal: _animal,
-                        species: _species,
-                        status: _status,
-                        zone: _zone,
-                        worldPulse: _worldPulse,
-                        accent: _accent,
-                        glass: _customization.interfaceGlass,
-                      ),
-                      const Spacer(),
-                      _CameraStrip(
-                        selected: _cameraMode,
-                        onSelected: _setCamera,
-                        accent: _accent,
-                      ),
-                      const SizedBox(height: 12),
-                      _ActionDock(
-                        onAction: _action,
-                        onCustomize: _openCustomization,
-                        accent: _accent,
-                      ),
+                      if (_hudVisible) ...[
+                        Align(
+                          alignment: Alignment.topLeft,
+                          child: Transform.scale(
+                            scale: uiScale,
+                            alignment: Alignment.topLeft,
+                            child: _AnimalHud(
+                              animal: _animal,
+                              species: _species,
+                              status: _status,
+                              accent: _accent,
+                              glass: _customization.interfaceGlass,
+                              compact: compact,
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Transform.scale(
+                            scale: uiScale,
+                            alignment: Alignment.topRight,
+                            child: _WorldHud(
+                              zone: _zone,
+                              worldPulse: _worldPulse,
+                              accent: _accent,
+                              onFocusMode: () => setState(() => _hudVisible = false),
+                              compact: compact,
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Transform.scale(
+                            scale: uiScale,
+                            alignment: Alignment.bottomCenter,
+                            child: _ControlDeck(
+                              selected: _cameraMode,
+                              onSelected: _setCamera,
+                              onAction: _action,
+                              onCustomize: _openCustomization,
+                              accent: _accent,
+                              compact: compact,
+                            ),
+                          ),
+                        ),
+                      ] else
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: _FocusRestoreButton(
+                            accent: _accent,
+                            onTap: () => setState(() => _hudVisible = true),
+                          ),
+                        ),
+                      if (_cameraMode == SanctuaryCameraMode.bodycam)
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: compact ? 6 : 12),
+                            child: const _BodycamBadge(),
+                          ),
+                        ),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
             ),
-            if (_cameraMode == SanctuaryCameraMode.bodycam)
-              const Positioned(
-                top: 108,
-                right: 20,
-                child: _BodycamBadge(),
-              ),
           ],
         ),
       ),
@@ -252,88 +295,132 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
   }
 }
 
-class _TopBar extends StatelessWidget {
-  const _TopBar({
+class _AnimalHud extends StatelessWidget {
+  const _AnimalHud({
     required this.animal,
     required this.species,
     required this.status,
-    required this.zone,
-    required this.worldPulse,
     required this.accent,
     required this.glass,
+    required this.compact,
   });
 
   final String animal;
   final String species;
   final String status;
-  final String zone;
-  final String worldPulse;
   final Color accent;
   final double glass;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final alpha = (0.58 + glass * 0.30).clamp(0.58, 0.92);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0F0E).withValues(alpha: alpha),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accent.withValues(alpha: 0.20)),
-        boxShadow: const [BoxShadow(blurRadius: 30, color: Color(0x66000000))],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'HIPPO OS  /  LIVING SANCTUARY',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        letterSpacing: 1.9,
-                        color: accent,
-                      ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  '$animal  ·  $species',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  status,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Color(0xFFC5D1CA)),
-                ),
-              ],
+    final alpha = (0.48 + glass * 0.28).clamp(0.48, 0.82);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: compact ? 390 : 460),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 14 : 17,
+          vertical: compact ? 9 : 12,
+        ),
+        decoration: _glassDecoration(accent, alpha),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
             ),
-          ),
-          const SizedBox(width: 14),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$animal  ·  $species',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: compact ? 15 : 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    status,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: compact ? 10 : 11,
+                      color: const Color(0xFFC4D0C9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorldHud extends StatelessWidget {
+  const _WorldHud({
+    required this.zone,
+    required this.worldPulse,
+    required this.accent,
+    required this.onFocusMode,
+    required this.compact,
+  });
+
+  final String zone;
+  final String worldPulse;
+  final Color accent;
+  final VoidCallback onFocusMode;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 12 : 15,
+        compact ? 7 : 9,
+        compact ? 7 : 8,
+        compact ? 7 : 9,
+      ),
+      decoration: _glassDecoration(accent, 0.68),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                'REAL WORLD CLOCK',
+              Text(
+                zone,
                 style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.3,
-                  color: Color(0xFF83998E),
+                  fontSize: compact ? 10 : 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(zone, style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 3),
               Text(
                 worldPulse,
-                style: const TextStyle(fontSize: 10, color: Color(0xFF91A69B)),
+                style: TextStyle(
+                  fontSize: compact ? 8 : 9,
+                  color: const Color(0xFF94A99E),
+                ),
               ),
             ],
+          ),
+          const SizedBox(width: 7),
+          IconButton(
+            tooltip: 'Focus mode',
+            visualDensity: VisualDensity.compact,
+            onPressed: onFocusMode,
+            icon: const Icon(Icons.visibility_off_outlined, size: 18),
           ),
         ],
       ),
@@ -341,125 +428,164 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-class _CameraStrip extends StatelessWidget {
-  const _CameraStrip({
+class _ControlDeck extends StatelessWidget {
+  const _ControlDeck({
     required this.selected,
     required this.onSelected,
+    required this.onAction,
+    required this.onCustomize,
     required this.accent,
+    required this.compact,
   });
 
   final SanctuaryCameraMode selected;
   final ValueChanged<SanctuaryCameraMode> onSelected;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: const Color(0xD90A0F0E),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-      ),
-      child: Row(
-        children: [
-          for (final mode in SanctuaryCameraMode.values)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: FilledButton.tonal(
-                  onPressed: () => onSelected(mode),
-                  style: FilledButton.styleFrom(
-                    backgroundColor:
-                        selected == mode ? accent : const Color(0xFF111817),
-                    foregroundColor: selected == mode
-                        ? const Color(0xFF07100C)
-                        : const Color(0xFFC2CEC7),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Text(
-                    mode.label,
-                    style: const TextStyle(fontSize: 11, letterSpacing: 0.7),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionDock extends StatelessWidget {
-  const _ActionDock({
-    required this.onAction,
-    required this.onCustomize,
-    required this.accent,
-  });
-
   final ValueChanged<String> onAction;
   final VoidCallback onCustomize;
   final Color accent;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 70,
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: const Color(0xE60A0F0E),
-        borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: compact ? 760 : 900),
+      child: Container(
+        padding: EdgeInsets.all(compact ? 5 : 6),
+        decoration: _glassDecoration(accent, 0.76),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mode in SanctuaryCameraMode.values)
+              _CameraButton(
+                mode: mode,
+                selected: selected == mode,
+                accent: accent,
+                onTap: () => onSelected(mode),
+                compact: compact,
+              ),
+            _divider(compact),
+            _DeckIcon(
+              tooltip: 'Feed',
+              icon: Icons.restaurant,
+              onTap: () => onAction('feed'),
+              compact: compact,
+            ),
+            _DeckIcon(
+              tooltip: 'Pet',
+              icon: Icons.pan_tool_alt_outlined,
+              onTap: () => onAction('pet'),
+              compact: compact,
+            ),
+            _DeckIcon(
+              tooltip: 'Journal',
+              icon: Icons.auto_stories_outlined,
+              onTap: () => onAction('journal'),
+              compact: compact,
+            ),
+            _DeckIcon(
+              tooltip: 'Customise',
+              icon: Icons.tune,
+              onTap: onCustomize,
+              compact: compact,
+            ),
+          ],
+        ),
       ),
-      child: Row(
-        children: [
-          _DockButton(
-            label: 'FEED',
-            icon: Icons.restaurant,
-            onTap: () => onAction('feed'),
+    );
+  }
+
+  Widget _divider(bool compact) => Container(
+        width: 1,
+        height: compact ? 28 : 34,
+        margin: const EdgeInsets.symmetric(horizontal: 5),
+        color: Colors.white.withValues(alpha: 0.10),
+      );
+}
+
+class _CameraButton extends StatelessWidget {
+  const _CameraButton({
+    required this.mode,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+    required this.compact,
+  });
+
+  final SanctuaryCameraMode mode;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          foregroundColor: selected ? const Color(0xFF06100B) : const Color(0xFFC4CFC9),
+          backgroundColor: selected ? accent : Colors.transparent,
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 9 : 12,
+            vertical: compact ? 8 : 10,
           ),
-          _DockButton(
-            label: 'PET',
-            icon: Icons.pan_tool_alt_outlined,
-            onTap: () => onAction('pet'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        child: Text(
+          mode.label,
+          style: TextStyle(
+            fontSize: compact ? 9 : 10,
+            letterSpacing: 0.45,
+            fontWeight: FontWeight.w600,
           ),
-          _DockButton(
-            label: 'JOURNAL',
-            icon: Icons.auto_stories_outlined,
-            onTap: () => onAction('journal'),
-          ),
-          _DockButton(
-            label: 'CUSTOMISE',
-            icon: Icons.tune,
-            onTap: onCustomize,
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _DockButton extends StatelessWidget {
-  const _DockButton({
-    required this.label,
+class _DeckIcon extends StatelessWidget {
+  const _DeckIcon({
+    required this.tooltip,
     required this.icon,
     required this.onTap,
+    required this.compact,
   });
 
-  final String label;
+  final String tooltip;
   final IconData icon;
+  final VoidCallback onTap;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      visualDensity: VisualDensity.compact,
+      iconSize: compact ? 18 : 20,
+      padding: EdgeInsets.all(compact ? 7 : 9),
+      icon: Icon(icon),
+    );
+  }
+}
+
+class _FocusRestoreButton extends StatelessWidget {
+  const _FocusRestoreButton({required this.accent, required this.onTap});
+
+  final Color accent;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: TextButton.icon(
+    return Container(
+      decoration: _glassDecoration(accent, 0.62),
+      child: IconButton(
+        tooltip: 'Show controls',
         onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label, style: const TextStyle(letterSpacing: 0.8)),
+        icon: const Icon(Icons.visibility_outlined, size: 19),
       ),
     );
   }
@@ -471,23 +597,34 @@ class _BodycamBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xC90B0E0D),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white24),
+        color: const Color(0xB80B0E0D),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 9, color: Color(0xFFE2574C)),
-          SizedBox(width: 7),
+          Icon(Icons.circle, size: 7, color: Color(0xFFE2574C)),
+          SizedBox(width: 6),
           Text(
             'BODYCAM',
-            style: TextStyle(fontSize: 11, letterSpacing: 1.2),
+            style: TextStyle(fontSize: 9, letterSpacing: 1.1),
           ),
         ],
       ),
     );
   }
+}
+
+BoxDecoration _glassDecoration(Color accent, double alpha) {
+  return BoxDecoration(
+    color: const Color(0xFF07100D).withValues(alpha: alpha),
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: accent.withValues(alpha: 0.16)),
+    boxShadow: const <BoxShadow>[
+      BoxShadow(blurRadius: 22, color: Color(0x47000000)),
+    ],
+  );
 }
