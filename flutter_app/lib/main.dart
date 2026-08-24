@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -56,6 +57,7 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
   String _status = 'Sanctuary online';
   String _zone = 'LOCAL TIME';
   String _worldPulse = 'Living world starting';
+  String _lastCustomizationJson = '';
   StreamSubscription<dynamic>? _eventSubscription;
   Timer? _clockSyncTimer;
 
@@ -101,10 +103,28 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
     if (event is! Map || !mounted) return;
     final wind = _asDouble(event['wind']);
     final humidity = _asDouble(event['humidity']);
+    SanctuaryCustomization? restoredCustomization;
+    final customizationJson = event['customization_json'];
+    if (customizationJson is String &&
+        customizationJson.isNotEmpty &&
+        customizationJson != _lastCustomizationJson) {
+      try {
+        restoredCustomization = SanctuaryCustomization.fromEnginePayload(
+          jsonDecode(customizationJson),
+        );
+        _lastCustomizationJson = customizationJson;
+      } on FormatException {
+        restoredCustomization = null;
+      }
+    }
+
     setState(() {
       _animal = '${event['animal_name'] ?? _animal}';
       _species = '${event['species_name'] ?? _species}';
       _status = '${event['status'] ?? _status}';
+      if (restoredCustomization != null) {
+        _customization = restoredCustomization!;
+      }
       if (wind != null && humidity != null) {
         _worldPulse =
             'Wind ${(wind * 100).round()}%  ·  Humidity ${(humidity * 100).round()}%';
@@ -153,74 +173,80 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: AndroidView(
-              viewType: 'hippo_os/godot_view',
-              layoutDirection: TextDirection.ltr,
+    final textMedia = MediaQuery.of(context).copyWith(
+      textScaler: TextScaler.linear(_customization.textScale),
+    );
+    return MediaQuery(
+      data: textMedia,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const Positioned.fill(
+              child: AndroidView(
+                viewType: 'hippo_os/godot_view',
+                layoutDirection: TextDirection.ltr,
+              ),
             ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.54),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.68),
-                    ],
-                    stops: const [0.0, 0.48, 1.0],
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.54),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.68),
+                      ],
+                      stops: const [0.0, 0.48, 1.0],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          SafeArea(
-            child: Transform.scale(
-              scale: _customization.interfaceScale,
-              alignment: Alignment.center,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-                child: Column(
-                  children: [
-                    _TopBar(
-                      animal: _animal,
-                      species: _species,
-                      status: _status,
-                      zone: _zone,
-                      worldPulse: _worldPulse,
-                      accent: _accent,
-                      glass: _customization.interfaceGlass,
-                    ),
-                    const Spacer(),
-                    _CameraStrip(
-                      selected: _cameraMode,
-                      onSelected: _setCamera,
-                      accent: _accent,
-                    ),
-                    const SizedBox(height: 12),
-                    _ActionDock(
-                      onAction: _action,
-                      onCustomize: _openCustomization,
-                      accent: _accent,
-                    ),
-                  ],
+            SafeArea(
+              child: Transform.scale(
+                scale: _customization.interfaceScale,
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                  child: Column(
+                    children: [
+                      _TopBar(
+                        animal: _animal,
+                        species: _species,
+                        status: _status,
+                        zone: _zone,
+                        worldPulse: _worldPulse,
+                        accent: _accent,
+                        glass: _customization.interfaceGlass,
+                      ),
+                      const Spacer(),
+                      _CameraStrip(
+                        selected: _cameraMode,
+                        onSelected: _setCamera,
+                        accent: _accent,
+                      ),
+                      const SizedBox(height: 12),
+                      _ActionDock(
+                        onAction: _action,
+                        onCustomize: _openCustomization,
+                        accent: _accent,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          if (_cameraMode == SanctuaryCameraMode.bodycam)
-            const Positioned(
-              top: 108,
-              right: 20,
-              child: _BodycamBadge(),
-            ),
-        ],
+            if (_cameraMode == SanctuaryCameraMode.bodycam)
+              const Positioned(
+                top: 108,
+                right: 20,
+                child: _BodycamBadge(),
+              ),
+          ],
+        ),
       ),
     );
   }
