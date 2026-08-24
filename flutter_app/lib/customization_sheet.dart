@@ -147,6 +147,7 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                       label: 'Glass depth',
                       value: value.interfaceGlass,
                       min: 0.25,
+                      max: 1.0,
                       onChanged: (v) => _commit(value.copyWith(interfaceGlass: v)),
                     ),
                     _SliderRow(
