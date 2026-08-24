@@ -1,0 +1,99 @@
+extends Node
+
+# Reference-driven camera composition. It reuses main.gd's mature orbit variables
+# but pivots the orbit around the selected live companion instead of the world origin.
+
+var scene_root: Node3D
+var roster: Node
+var camera: Camera3D
+var smoothed_pivot := Vector3.ZERO
+var initialized := false
+
+func _ready() -> void:
+    process_mode = Node.PROCESS_MODE_ALWAYS
+    process_priority = 340
+    set_process(false)
+    call_deferred("_bind_when_ready")
+
+func _bind_when_ready() -> void:
+    for _attempt in range(300):
+        var candidate := get_tree().current_scene
+        var roster_candidate := get_node_or_null("/root/CompanionRoster")
+        if candidate is Node3D and roster_candidate != null:
+            scene_root = candidate as Node3D
+            roster = roster_candidate
+            camera = _find_camera(scene_root)
+            if camera != null:
+                break
+        await get_tree().process_frame
+    if scene_root == null or roster == null or camera == null:
+        push_warning("HeroCameraDirector could not bind to the sanctuary camera")
+        return
+    _hide_prototype_focus_ring()
+    set_process(true)
+
+func _process(delta: float) -> void:
+    if scene_root == null or roster == null:
+        return
+    var sanctuary_hud := get_node_or_null("/root/SanctuaryHUD")
+    if sanctuary_hud != null and bool(sanctuary_hud.get("bodycam_mode")):
+        return
+    if camera == null or not is_instance_valid(camera):
+        camera = _find_camera(scene_root)
+        if camera == null:
+            return
+
+    _hide_prototype_focus_ring()
+    var selected := _selected_node()
+    if selected == null:
+        return
+
+    var desired_pivot := selected.global_position + Vector3(0.0, 0.62, 0.0)
+    if not initialized:
+        smoothed_pivot = desired_pivot
+        initialized = true
+    else:
+        smoothed_pivot = smoothed_pivot.lerp(desired_pivot, clampf(delta * 5.2, 0.0, 1.0))
+
+    var yaw := float(scene_root.get("orbit_yaw"))
+    var pitch := clampf(float(scene_root.get("orbit_pitch")), -0.42, 0.16)
+    var requested_distance := float(scene_root.get("orbit_distance"))
+    var distance := clampf(requested_distance, 4.8, 7.4)
+    var horizontal := cos(pitch) * distance
+    var desired_camera := smoothed_pivot + Vector3(
+        sin(yaw) * horizontal,
+        -sin(pitch) * distance + 0.28,
+        cos(yaw) * horizontal
+    )
+
+    camera.global_position = camera.global_position.lerp(desired_camera, clampf(delta * 6.2, 0.0, 1.0))
+    camera.look_at(smoothed_pivot + Vector3(0.0, 0.10, 0.0), Vector3.UP)
+    camera.fov = lerpf(camera.fov, 42.0, clampf(delta * 4.0, 0.0, 1.0))
+
+func _selected_node() -> Node3D:
+    var companions_variant: Variant = roster.get("companions")
+    if typeof(companions_variant) != TYPE_DICTIONARY:
+        return null
+    var companions := companions_variant as Dictionary
+    var species := str(roster.get("selected_species"))
+    var data_variant: Variant = companions.get(species, {})
+    if typeof(data_variant) != TYPE_DICTIONARY:
+        return null
+    var node := (data_variant as Dictionary).get("node") as Node3D
+    return node if node != null and is_instance_valid(node) else null
+
+func _hide_prototype_focus_ring() -> void:
+    if scene_root == null:
+        return
+    var ring := scene_root.find_child("SelectedCompanionFocus", true, false) as GeometryInstance3D
+    if ring != null:
+        ring.visible = false
+
+func _find_camera(node: Node) -> Camera3D:
+    if node is Camera3D and (node as Camera3D).current:
+        return node as Camera3D
+    for child in node.get_children():
+        var found := _find_camera(child)
+        if found != null:
+            return found
+    return null
