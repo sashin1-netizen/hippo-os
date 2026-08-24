@@ -1,4 +1,3 @@
-import 'living_sanctuary.dart';
+import 'open_world_app.dart';
 
-// Realism rebuild entrypoint. Keep the living sanctuary shell as the only UI host.
-Future<void> main() => runLivingSanctuary();
+Future<void> main() => runOpenWorldApp();
