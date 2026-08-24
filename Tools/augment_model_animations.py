@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Refine Hippo OS model specs before compiling production GLBs.
+"""Single deterministic Hippo OS creature-production refinement pass.
 
-The checked-in JSON files remain stable anatomy sources. This deterministic build step
-adds species-specific behaviour clips and raises mesh density to a mobile-safe quality
-profile before anyCreature compiles the runtime assets.
+The checked-in JSON files are stable anatomy sources. This step raises mesh density,
+reduces synthetic surface noise, adds subtle idle motion and injects species-specific
+behaviour clips before the strict anyCreature compiler builds the runtime GLBs.
 """
 
 import json
@@ -98,28 +98,41 @@ EXTRA_ANIMATIONS = {
 
 
 def refine_geometry(data: dict) -> None:
-    """Increase silhouette smoothness without turning a phone build into a desktop asset."""
-    data["smooth_angle"] = max(float(data.get("smooth_angle", 68)), 76.0)
+    data["smooth_angle"] = max(float(data.get("smooth_angle", 68)), 82.0)
+    shading = data.setdefault("shading", {})
+    noise = shading.setdefault("noise", {})
+    noise["amount"] = min(float(noise.get("amount", 0.16)), 0.085)
+    noise["size"] = min(float(noise.get("size", 0.014)), 0.010)
+
     for volume in data.get("volumes", []):
         chain = str(volume.get("chain", ""))
         current_sides = int(volume.get("sides", 12))
         if chain == "body":
-            volume["sides"] = max(current_sides, 28)
-            volume["ring_step"] = min(float(volume.get("ring_step", 0.06)), 0.045)
+            volume["sides"] = max(current_sides, 32)
+            volume["ring_step"] = min(float(volume.get("ring_step", 0.055)), 0.040)
         elif chain == "head":
-            volume["sides"] = max(current_sides, 26)
-            volume["ring_step"] = min(float(volume.get("ring_step", 0.06)), 0.042)
+            volume["sides"] = max(current_sides, 30)
+            volume["ring_step"] = min(float(volume.get("ring_step", 0.065)), 0.040)
         elif chain in ("LFront", "LBack"):
-            volume["sides"] = max(current_sides, 16)
-            volume["ring_step"] = min(float(volume.get("ring_step", 0.05)), 0.036)
+            volume["sides"] = max(current_sides, 18)
+            volume["ring_step"] = min(float(volume.get("ring_step", 0.045)), 0.035)
         elif chain == "tail":
-            volume["sides"] = max(current_sides, 14)
+            volume["sides"] = max(current_sides, 18)
             volume["ring_step"] = min(float(volume.get("ring_step", 0.055)), 0.045)
+
+
+def add_idle_micro_motion(data: dict) -> None:
+    animations = data.setdefault("animations", {})
+    idle = animations.setdefault("idle", {"duration": 2.4, "loop": True, "tracks": {}})
+    tracks = idle.setdefault("tracks", {})
+    tracks.setdefault("HeadRoot", {})["ry"] = keyframes((0, -1.5), (0.28, 1.2), (0.62, -0.6), (1, -1.5))
+    tracks.setdefault("Neck2", {})["ry"] = keyframes((0, 0.8), (0.5, -0.8), (1, 0.8))
 
 
 def augment(path: Path, additions: dict) -> None:
     data = json.loads(path.read_text(encoding="utf-8"))
     refine_geometry(data)
+    add_idle_micro_motion(data)
     animations = data.setdefault("animations", {})
     animations.update(additions)
     path.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")
