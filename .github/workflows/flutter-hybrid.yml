@@ -168,3 +168,11 @@ jobs:
           set -euxo pipefail
           test -s flutter_app/build/app/outputs/flutter-apk/app-debug.apk
           ls -lh flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload preview APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Flutter-Preview
+          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
