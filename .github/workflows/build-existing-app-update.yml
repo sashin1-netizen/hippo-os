@@ -72,7 +72,8 @@ jobs:
           grep -q 'version/code=101' export_presets.cfg
           grep -q 'version/name="0.2.3-update"' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
-          grep -q '^StartupGuard="\*res://scripts/startup_guard.gd"' project.godot
+          grep -Fq 'StartupFailSafe="*res://scripts/startup_fail_safe.gd"' project.godot
+          test -f scripts/startup_fail_safe.gd
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import-existing-update.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import-existing-update.log
       - name: Export existing-app update APK
