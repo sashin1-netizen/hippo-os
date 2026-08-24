@@ -1,3 +1,3 @@
-import 'main_v2.dart';
+import 'living_sanctuary.dart';
 
-Future<void> main() => runHippoOs();
+Future<void> main() => runLivingSanctuary();
