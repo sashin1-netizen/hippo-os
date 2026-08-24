@@ -25,6 +25,7 @@ ProductionAssetLoader="*res://scripts/production_asset_loader.gd"
 LifelikeRendering="*res://scripts/lifelike_rendering.gd"
 GrasslandsSanctuary="*res://scripts/grasslands_sanctuary.gd"
 SanctuaryHUD="*res://scripts/sanctuary_hud.gd"
+HeroCameraDirector="*res://scripts/hero_camera_director.gd"
 
 [display]
 
