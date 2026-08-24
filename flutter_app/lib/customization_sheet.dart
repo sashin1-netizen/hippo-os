@@ -47,6 +47,12 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
     }
   }
 
+  void _setAnimalName(String rawName) {
+    final name = rawName.trim();
+    if (name.isEmpty) return;
+    _setAnimal(animal.copyWith(name: name.substring(0, name.length.clamp(0, 24))));
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -54,7 +60,7 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
       child: Material(
         color: const Color(0xFF090E0C),
         child: DraggableScrollableSheet(
-          initialChildSize: 0.82,
+          initialChildSize: 0.84,
           minChildSize: 0.55,
           maxChildSize: 0.96,
           expand: false,
@@ -84,7 +90,7 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Your choices shape the world and each animal’s baseline temperament. Memory, preferences and autonomous behaviour continue to evolve on their own.',
+                  'Shape the sanctuary, interface and each animal’s baseline character. Memory, preferences, boundaries and autonomous behaviour continue to evolve on their own.',
                   style: TextStyle(color: Color(0xFFAFC0B7), height: 1.35),
                 ),
                 const SizedBox(height: 24),
@@ -129,7 +135,7 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Auto living world'),
-                      subtitle: const Text('The sanctuary continues changing by itself.'),
+                      subtitle: const Text('Weather and sanctuary activity keep evolving automatically.'),
                       value: value.autoLivingWorld,
                       onChanged: (v) => _commit(value.copyWith(autoLivingWorld: v)),
                     ),
@@ -156,9 +162,63 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                       onChanged: (v) => _commit(value.copyWith(interfaceScale: 0.85 + v * 0.40)),
                     ),
                     _SliderRow(
+                      label: 'Text size',
+                      value: (value.textScale - 0.85) / 0.50,
+                      onChanged: (v) => _commit(value.copyWith(textScale: 0.85 + v * 0.50)),
+                    ),
+                    _SliderRow(
+                      label: 'Camera sensitivity',
+                      value: (value.cameraSensitivity - 0.40) / 1.60,
+                      onChanged: (v) => _commit(value.copyWith(cameraSensitivity: 0.40 + v * 1.60)),
+                    ),
+                    _SliderRow(
                       label: 'Bodycam motion',
                       value: value.bodycamMotion,
                       onChanged: (v) => _commit(value.copyWith(bodycamMotion: v)),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Reduced motion'),
+                      subtitle: const Text('Stabilises camera movement while keeping the world alive.'),
+                      value: value.reducedMotion,
+                      onChanged: (v) => _commit(value.copyWith(reducedMotion: v)),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show animal stats'),
+                      value: value.showStats,
+                      onChanged: (v) => _commit(value.copyWith(showStats: v)),
+                    ),
+                  ],
+                ),
+                _Section(
+                  title: 'AUDIO & FEEDBACK',
+                  children: [
+                    _SliderRow(
+                      label: 'Master',
+                      value: value.masterVolume,
+                      onChanged: (v) => _commit(value.copyWith(masterVolume: v)),
+                    ),
+                    _SliderRow(
+                      label: 'Animal sounds',
+                      value: value.animalVolume,
+                      onChanged: (v) => _commit(value.copyWith(animalVolume: v)),
+                    ),
+                    _SliderRow(
+                      label: 'Ambience',
+                      value: value.ambienceVolume,
+                      onChanged: (v) => _commit(value.copyWith(ambienceVolume: v)),
+                    ),
+                    _SliderRow(
+                      label: 'Interface sounds',
+                      value: value.uiVolume,
+                      onChanged: (v) => _commit(value.copyWith(uiVolume: v)),
+                    ),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Haptics'),
+                      value: value.haptics,
+                      onChanged: (v) => _commit(value.copyWith(haptics: v)),
                     ),
                   ],
                 ),
@@ -167,14 +227,20 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                   children: [
                     SegmentedButton<String>(
                       segments: const [
-                        ButtonSegment(value: 'hippo_01', label: Text('MOCHI')),
-                        ButtonSegment(value: 'pig_01', label: Text('TRUFFLE')),
-                        ButtonSegment(value: 'sharpei_01', label: Text('BAO')),
+                        ButtonSegment(value: 'hippo_01', label: Text('HIPPO')),
+                        ButtonSegment(value: 'pig_01', label: Text('PIG')),
+                        ButtonSegment(value: 'sharpei_01', label: Text('SHAR-PEI')),
                       ],
                       selected: {animalId},
                       onSelectionChanged: (selection) => setState(() => animalId = selection.first),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
+                    _NameEditor(
+                      key: ValueKey(animalId),
+                      initialName: animal.name,
+                      onSaved: _setAnimalName,
+                    ),
+                    const SizedBox(height: 8),
                     _SliderRow(
                       label: 'Body build',
                       value: (animal.bodyScale - 0.88) / 0.24,
@@ -218,7 +284,7 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
                     ),
                     const SizedBox(height: 4),
                     const Text(
-                      'These sliders influence starting tendencies. They do not overwrite learned memories or force actions.',
+                      'These controls influence baseline character only. They never erase learned memories or force an animal to obey.',
                       style: TextStyle(color: Color(0xFF82958B), fontSize: 12),
                     ),
                   ],
@@ -226,6 +292,57 @@ class _CustomizationSheetState extends State<CustomizationSheet> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _NameEditor extends StatefulWidget {
+  const _NameEditor({
+    super.key,
+    required this.initialName,
+    required this.onSaved,
+  });
+
+  final String initialName;
+  final ValueChanged<String> onSaved;
+
+  @override
+  State<_NameEditor> createState() => _NameEditorState();
+}
+
+class _NameEditorState extends State<_NameEditor> {
+  late final TextEditingController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void save() => widget.onSaved(controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      maxLength: 24,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => save(),
+      decoration: InputDecoration(
+        labelText: 'Name',
+        counterText: '',
+        suffixIcon: IconButton(
+          tooltip: 'Save name',
+          onPressed: save,
+          icon: const Icon(Icons.check_rounded),
         ),
       ),
     );
