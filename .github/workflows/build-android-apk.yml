@@ -265,11 +265,9 @@ jobs:
             adb shell pidof com.sashin.hippoos.personal | tee apk/adb-pid.txt
             test -s apk/adb-pid.txt
             adb shell dumpsys window displays > apk/window-displays.txt
-            if grep -q 'ImmersiveModeConfirmation' apk/window-displays.txt; then
-              adb shell input tap 1700 500
-              sleep 3
-              adb shell dumpsys window displays > apk/window-displays.txt
-            fi
+            grep -q 'ImmersiveModeConfirmation' apk/window-displays.txt && adb shell input tap 1700 500 || true
+            sleep 3
+            adb shell dumpsys window displays > apk/window-displays.txt
             grep -q 'com.sashin.hippoos.personal' apk/window-displays.txt
             ! grep -q 'mCurrentFocus=.*ImmersiveModeConfirmation' apk/window-displays.txt
             adb exec-out screencap -p > apk/launch.png
