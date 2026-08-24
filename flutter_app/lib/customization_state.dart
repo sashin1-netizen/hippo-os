@@ -1,5 +1,6 @@
 class AnimalCustomization {
   const AnimalCustomization({
+    this.name = '',
     this.bodyScale = 1.0,
     this.skinWarmth = 0.5,
     this.patternStrength = 0.25,
@@ -9,6 +10,7 @@ class AnimalCustomization {
     this.energyBias = 0.5,
   });
 
+  final String name;
   final double bodyScale;
   final double skinWarmth;
   final double patternStrength;
@@ -17,9 +19,12 @@ class AnimalCustomization {
   final double socialBias;
   final double energyBias;
 
-  factory AnimalCustomization.fromJson(dynamic source) {
+  factory AnimalCustomization.fromJson(dynamic source, String fallbackName) {
     final map = _stringMap(source);
     return AnimalCustomization(
+      name: '${map['name'] ?? fallbackName}'.trim().isEmpty
+          ? fallbackName
+          : '${map['name'] ?? fallbackName}'.trim(),
       bodyScale: _number(map['body_scale'], 1.0),
       skinWarmth: _number(map['skin_warmth'], 0.5),
       patternStrength: _number(map['pattern_strength'], 0.25),
@@ -31,6 +36,7 @@ class AnimalCustomization {
   }
 
   AnimalCustomization copyWith({
+    String? name,
     double? bodyScale,
     double? skinWarmth,
     double? patternStrength,
@@ -40,6 +46,7 @@ class AnimalCustomization {
     double? energyBias,
   }) {
     return AnimalCustomization(
+      name: name ?? this.name,
       bodyScale: bodyScale ?? this.bodyScale,
       skinWarmth: skinWarmth ?? this.skinWarmth,
       patternStrength: patternStrength ?? this.patternStrength,
@@ -51,6 +58,7 @@ class AnimalCustomization {
   }
 
   Map<String, Object> toJson() => <String, Object>{
+        'name': name,
         'body_scale': bodyScale,
         'skin_warmth': skinWarmth,
         'pattern_strength': patternStrength,
@@ -84,9 +92,9 @@ class SanctuaryCustomization {
     this.showStats = true,
     this.reducedMotion = false,
     this.autoLivingWorld = true,
-    this.mochi = const AnimalCustomization(),
-    this.truffle = const AnimalCustomization(),
-    this.bao = const AnimalCustomization(),
+    this.mochi = const AnimalCustomization(name: 'Mochi'),
+    this.truffle = const AnimalCustomization(name: 'Truffle'),
+    this.bao = const AnimalCustomization(name: 'Bao'),
   });
 
   final double accentHue;
@@ -143,9 +151,9 @@ class SanctuaryCustomization {
       showStats: _boolean(settings['show_stats'], true),
       reducedMotion: _boolean(settings['reduced_motion'], false),
       autoLivingWorld: _boolean(world['auto_living_world'], true),
-      mochi: AnimalCustomization.fromJson(animals['hippo_01']),
-      truffle: AnimalCustomization.fromJson(animals['pig_01']),
-      bao: AnimalCustomization.fromJson(animals['sharpei_01']),
+      mochi: AnimalCustomization.fromJson(animals['hippo_01'], 'Mochi'),
+      truffle: AnimalCustomization.fromJson(animals['pig_01'], 'Truffle'),
+      bao: AnimalCustomization.fromJson(animals['sharpei_01'], 'Bao'),
     );
   }
 
