@@ -68,7 +68,7 @@ jobs:
           java -version
           "$ANDROID_HOME/build-tools/36.1.0/aapt" version
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
-          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -h >/dev/null
+          test -x "$ANDROID_HOME/build-tools/36.1.0/zipalign"
 
       - name: Install stable personal release signing key
         shell: bash
