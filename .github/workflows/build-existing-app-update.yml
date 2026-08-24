@@ -20,10 +20,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: hippoos-existing-update-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-existing-update:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -33,33 +37,51 @@ jobs:
       HIPPOOS_TEST_CERT_SHA256: 3f19983ae8a86f7f7b20fa6be17b69882879c76a747f5d7744a6b063717f1dc2
     steps:
       - uses: actions/checkout@v5
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: android-actions/setup-android@v3
-      - name: Install Android toolchain
+
+      - name: Install Android API 36 toolchain
         shell: bash
         run: |
           set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;36.1.0' 'platforms;android-36' 'cmdline-tools;latest' 'cmake;3.10.2.4988404' 'ndk;29.0.14206865'
+          sdkmanager --sdk_root="$ANDROID_HOME" \
+            'platform-tools' \
+            'build-tools;36.1.0' \
+            'platforms;android-36' \
+            'cmdline-tools;latest' \
+            'cmake;3.10.2.4988404' \
+            'ndk;29.0.14206865'
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" version
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
+
       - name: Install original Hippo OS signing key
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.android"
           base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
-          keytool -list -v -keystore "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" -storepass "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" -alias "$GODOT_ANDROID_KEYSTORE_RELEASE_USER" | tee build-key.txt
+          keytool -list -v \
+            -keystore "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH" \
+            -storepass "$GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" \
+            -alias "$GODOT_ANDROID_KEYSTORE_RELEASE_USER" | tee build-key.txt
           grep -q '3F:19:98:3A:E8:A8:6F:7F:7B:20:FA:6B:E1:7B:69:88:28:79:C7:6A:74:7F:5D:77:44:A6:B0:63:71:7F:1D:C2' build-key.txt
+
       - uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
           use-dotnet: false
           include-templates: true
+
       - name: Configure Godot Android paths
         shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p "$HOME/.config/godot"
           cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF_SETTINGS
           [gd_resource type="EditorSettings" format=3]
@@ -67,8 +89,22 @@ jobs:
           export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF_SETTINGS
+          godot --version | grep -q '^4.7.2'
+
       - name: Fetch verified runtime assets
         run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+
+      - name: Install modern Android Gradle build template
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          rm -rf android
+          godot --headless --editor --path . --install-android-build-template --quit 2>&1 | tee ../build/godot-install-gradle-template.log
+          test -d android/build
+          test -f android/build/build.gradle
+          grep -q 'com.android.application' android/build/build.gradle
+
       - name: Validate update identity and portrait production target
         shell: bash
         working-directory: godot
@@ -76,8 +112,11 @@ jobs:
           set -euxo pipefail
           mkdir -p ../build
           grep -q '^name="Android Existing App Update"$' export_presets.cfg
-          grep -q 'version/code=103' export_presets.cfg
-          grep -q 'version/name="0.2.5-reference"' export_presets.cfg
+          grep -q '^name="Android Existing App Install CI"$' export_presets.cfg
+          grep -q 'gradle_build/use_gradle_build=true' export_presets.cfg
+          grep -q 'gradle_build/compress_native_libraries=false' export_presets.cfg
+          grep -q 'version/code=104' export_presets.cfg
+          grep -q 'version/name="0.2.6-package-fix"' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -q '^size/viewport_width=720$' project.godot
           grep -q '^size/viewport_height=1280$' project.godot
@@ -88,58 +127,149 @@ jobs:
           grep -Fq 'SanctuaryHUD="*res://scripts/sanctuary_hud.gd"' project.godot
           grep -Fq 'HeroCameraDirector="*res://scripts/hero_camera_director.gd"' project.godot
           grep -Fq 'PhoneVisualHotfix="*res://scripts/phone_visual_hotfix.gd"' project.godot
-          test -f scripts/startup_fail_safe.gd
-          test -f scripts/reference_composition.gd
-          test -f scripts/grasslands_sanctuary.gd
-          test -f scripts/sanctuary_hud.gd
-          test -f scripts/hero_camera_director.gd
-          test -f scripts/phone_visual_hotfix.gd
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import-existing-update.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import-existing-update.log
-      - name: Export existing-app update APK
+
+      - name: Export ARM64 Gradle existing-app update APK
         shell: bash
         working-directory: godot
         run: |
           set -euxo pipefail
-          godot --headless --verbose --path . --export-release "Android Existing App Update" "$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-existing-update.log"
+          godot --headless --verbose --path . \
+            --export-release "Android Existing App Update" \
+            "$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk" \
+            2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-existing-update.log"
           test -s "$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk"
-          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-existing-update.log"
-      - name: Verify exact update package and signer
+          grep -Eiq 'gradle|Gradle' "$GITHUB_WORKSPACE/build/godot-export-existing-update.log"
+          ! grep -Eiq 'Starting legacy build system|SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-existing-update.log"
+
+      - name: Verify ARM64 package structure signer and uncompressed native libraries
         shell: bash
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk"
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS-UPDATE.badging.txt 2> build/HippoOS-UPDATE.badging.stderr.txt || true
           grep -q "package: name='com.sashin.hippoos'" build/HippoOS-UPDATE.badging.txt
-          grep -q "versionCode='103'" build/HippoOS-UPDATE.badging.txt
+          grep -q "versionCode='104'" build/HippoOS-UPDATE.badging.txt
           grep -q "targetSdkVersion:'36'" build/HippoOS-UPDATE.badging.txt
+          unzip -t "$APK" | tee build/HippoOS-UPDATE.unzip-test.txt
           unzip -l "$APK" | tee build/HippoOS-UPDATE.contents.txt
           grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS-UPDATE.contents.txt
           ! grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS-UPDATE.contents.txt
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          apk = sys.argv[1]
+          with zipfile.ZipFile(apk) as zf:
+              libs = [i for i in zf.infolist() if i.filename.endswith('.so')]
+              assert libs, 'No native libraries found in APK'
+              bad = [i.filename for i in libs if i.compress_type != zipfile.ZIP_STORED]
+              assert not bad, f'Native libraries must be uncompressed: {bad}'
+              required = zf.getinfo('lib/arm64-v8a/libgodot_android.so')
+              assert required.compress_type == zipfile.ZIP_STORED
+              print('Verified uncompressed native libraries:', len(libs))
+          PY
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee build/HippoOS-UPDATE.zipalign.txt
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/HippoOS-UPDATE.signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/HippoOS-UPDATE.signature.txt
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' build/HippoOS-UPDATE.signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/HippoOS-UPDATE.signature.txt
           sha256sum "$APK" | tee build/HippoOS-UPDATE.sha256
+
+      - name: Export x86_64 Gradle PackageManager install twin
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --verbose --path . \
+            --export-release "Android Existing App Install CI" \
+            "$GITHUB_WORKSPACE/build/HippoOS-INSTALL-CI.apk" \
+            2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-install-ci.log"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS-INSTALL-CI.apk"
+          ! grep -Eiq 'Starting legacy build system|SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-install-ci.log"
+
+      - name: Verify PackageManager install twin mirrors release metadata
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK="$GITHUB_WORKSPACE/build/HippoOS-INSTALL-CI.apk"
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS-INSTALL-CI.badging.txt 2> build/HippoOS-INSTALL-CI.badging.stderr.txt || true
+          grep -q "package: name='com.sashin.hippoos'" build/HippoOS-INSTALL-CI.badging.txt
+          grep -q "versionCode='104'" build/HippoOS-INSTALL-CI.badging.txt
+          grep -q "targetSdkVersion:'36'" build/HippoOS-INSTALL-CI.badging.txt
+          unzip -l "$APK" | tee build/HippoOS-INSTALL-CI.contents.txt
+          grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS-INSTALL-CI.contents.txt
+          ! grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS-INSTALL-CI.contents.txt
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as zf:
+              libs = [i for i in zf.infolist() if i.filename.endswith('.so')]
+              assert libs
+              assert all(i.compress_type == zipfile.ZIP_STORED for i in libs)
+          print('Install twin native libraries are uncompressed')
+          PY
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" > build/HippoOS-INSTALL-CI.zipalign.txt
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/HippoOS-INSTALL-CI.signature.txt
+          grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/HippoOS-INSTALL-CI.signature.txt
+
+      - name: Enable KVM access
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Prove Android 16 PackageManager accepts the Gradle package
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
+          script: |
+            set -eux
+            adb wait-for-device
+            adb shell getprop ro.build.version.release | grep -q '^16$'
+            adb shell getprop ro.build.version.sdk | grep -q '^36$'
+            adb install -r build/HippoOS-INSTALL-CI.apk | tee build/adb-install-package-fix.txt
+            grep -q '^Success$' build/adb-install-package-fix.txt
+            adb shell pm path com.sashin.hippoos | tee build/adb-package-path.txt
+            adb shell dumpsys package com.sashin.hippoos > build/adb-package.txt
+            grep -q 'versionCode=104' build/adb-package.txt
+            grep -q 'targetSdk=36' build/adb-package.txt
+
       - uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-UPDATE-EXISTING-APP
+          name: HippoOS-UPDATE-EXISTING-APP-v0.2.6
           path: |
             build/HippoOS-UPDATE-EXISTING.apk
             build/HippoOS-UPDATE.badging.txt
             build/HippoOS-UPDATE.badging.stderr.txt
+            build/HippoOS-UPDATE.contents.txt
+            build/HippoOS-UPDATE.unzip-test.txt
             build/HippoOS-UPDATE.signature.txt
             build/HippoOS-UPDATE.zipalign.txt
             build/HippoOS-UPDATE.sha256
+            build/HippoOS-INSTALL-CI.badging.txt
+            build/HippoOS-INSTALL-CI.signature.txt
+            build/HippoOS-INSTALL-CI.zipalign.txt
+            build/adb-install-package-fix.txt
+            build/adb-package-path.txt
+            build/adb-package.txt
+            build/godot-install-gradle-template.log
             build/godot-import-existing-update.log
             build/godot-export-existing-update.log
+            build/godot-export-install-ci.log
           if-no-files-found: error
           retention-days: 30
-      - name: Publish direct-download APK release
+
+      - name: Publish installer-proven direct-download APK release
         if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: hippo-os-existing-update-v0.2.5
+          RELEASE_TAG: hippo-os-existing-update-v0.2.6
         run: |
           set -euxo pipefail
           cp build/HippoOS-UPDATE-EXISTING.apk build/HippoOS-UPDATE.apk
@@ -149,7 +279,7 @@ jobs:
             gh release create "$RELEASE_TAG" build/HippoOS-UPDATE.apk \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Hippo OS Reference Sanctuary v0.2.5" \
-              --notes "Portrait-first reference sanctuary update for the existing com.sashin.hippoos installation. Version code 103. Rebuilds the HUD, camera framing and layered grasslands environment to match the approved visual target while preserving the live companion simulation. ARM64. Android target API 36. Install over the existing Hippo OS app; do not uninstall it first." \
+              --title "Hippo OS Android 16 Package Fix v0.2.6" \
+              --notes "Existing-app update for com.sashin.hippoos, version code 104. Rebuilt with Godot's modern Gradle Android path, uncompressed native libraries and 16 KB alignment. Publication is gated by a successful Android 16 PackageManager adb install test. Install over the existing Hippo OS app; do not uninstall it first." \
               --prerelease
           fi
