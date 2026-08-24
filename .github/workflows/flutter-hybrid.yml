@@ -140,7 +140,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb libgl1-mesa-dri
 
-      - name: Capture true 4K sanctuary visual QA frame
+      - name: Capture true 4K sanctuary and Bodycam QA frames
         working-directory: godot
         shell: bash
         run: |
@@ -149,24 +149,30 @@ jobs:
           xvfb-run -a -s '-screen 0 3840x2160x24' \
             godot --path . --display-driver x11 --resolution 3840x2160 \
             --script res://scripts/release_capture.gd 2>&1 | tee /tmp/hippo-visual-qa.log
-          grep -q 'VISUAL QA CAPTURE PASS: 3840 x 2160' /tmp/hippo-visual-qa.log
-          test -s artifacts/sanctuary-cinematic-4k.png
-          python3 - <<'PY'
-          import struct
-          path='artifacts/sanctuary-cinematic-4k.png'
+          grep -q 'VISUAL QA CAPTURE PASS: 3840 x 2160 · cinematic + 3 bodycam frames' /tmp/hippo-visual-qa.log
+          for file in \
+            sanctuary-cinematic-4k.png \
+            mochi-bodycam-4k.png \
+            truffle-bodycam-4k.png \
+            bao-bodycam-4k.png; do
+            test -s "artifacts/$file"
+            FILE="$file" python3 - <<'PY'
+          import os, struct
+          path='artifacts/' + os.environ['FILE']
           with open(path,'rb') as f:
               sig=f.read(24)
           assert sig[:8] == b'\x89PNG\r\n\x1a\n'
           w,h=struct.unpack('>II', sig[16:24])
-          assert (w,h)==(3840,2160), (w,h)
-          print('4K PNG dimensions verified')
+          assert (w,h)==(3840,2160), (path,w,h)
+          print(path, '4K dimensions verified')
           PY
+          done
 
-      - name: Upload 4K visual QA frame
+      - name: Upload all 4K visual QA frames
         uses: actions/upload-artifact@v4
         with:
           name: HippoOS-Visual-QA-4K
-          path: godot/artifacts/sanctuary-cinematic-4k.png
+          path: godot/artifacts/*-4k.png
           if-no-files-found: error
           retention-days: 7
 
@@ -247,7 +253,7 @@ jobs:
         working-directory: flutter_app
         run: flutter build apk --release --split-per-abi --target-platform android-arm64
 
-      - name: Verify ARM64 internal QA build
+      - name: Verify ARM64 internal QA build and permission surface
         shell: bash
         run: |
           set -euxo pipefail
@@ -273,6 +279,26 @@ jobs:
           "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/hippo-apk-badging.txt
           grep -q "package: name='com.sashin.hippoos.preview'" /tmp/hippo-apk-badging.txt
           grep -q "application-label:'Hippo OS Preview'" /tmp/hippo-apk-badging.txt
+
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" | tee /tmp/hippo-apk-permissions.txt
+          grep -q 'android.permission.VIBRATE' /tmp/hippo-apk-permissions.txt
+          for forbidden in \
+            android.permission.INTERNET \
+            android.permission.ACCESS_NETWORK_STATE \
+            android.permission.CAMERA \
+            android.permission.RECORD_AUDIO \
+            android.permission.ACCESS_FINE_LOCATION \
+            android.permission.ACCESS_COARSE_LOCATION \
+            android.permission.READ_EXTERNAL_STORAGE \
+            android.permission.WRITE_EXTERNAL_STORAGE \
+            android.permission.READ_MEDIA_IMAGES \
+            android.permission.READ_MEDIA_VIDEO \
+            android.permission.READ_MEDIA_AUDIO; do
+            if grep -q "$forbidden" /tmp/hippo-apk-permissions.txt; then
+              echo "Forbidden permission found in packaged APK: $forbidden" >&2
+              exit 1
+            fi
+          done
 
       - name: Build x86_64 emulator-only QA APK
         working-directory: flutter_app
