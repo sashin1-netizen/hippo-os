@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource path="res://scripts/flutter_runtime_overlay.gd" type="Script" id="1_sanctuary"]
 [ext_resource path="res://scripts/visual_polish.gd" type="Script" id="2_polish"]
@@ -14,6 +14,10 @@
 [ext_resource path="res://scripts/animal_surface_effects.gd" type="Script" id="12_surface_fx"]
 [ext_resource path="res://scripts/environment_collision.gd" type="Script" id="13_collision"]
 [ext_resource path="res://scripts/performance_lod.gd" type="Script" id="14_lod"]
+[ext_resource path="res://scripts/terrain_realism.gd" type="Script" id="15_terrain_realism"]
+[ext_resource path="res://scripts/foliage_realism.gd" type="Script" id="16_foliage_realism"]
+[ext_resource path="res://scripts/weather_fx.gd" type="Script" id="17_weather_fx"]
+[ext_resource path="res://scripts/interaction_reactions.gd" type="Script" id="18_touch_fx"]
 
 [node name="HippoOSSanctuary" type="Node3D"]
 script = ExtResource("1_sanctuary")
@@ -27,6 +31,12 @@ script = ExtResource("3_environment")
 [node name="OpenWorldEnvironment" type="Node" parent="."]
 script = ExtResource("9_open_world")
 
+[node name="TerrainRealism" type="Node" parent="."]
+script = ExtResource("15_terrain_realism")
+
+[node name="FoliageRealism" type="Node" parent="."]
+script = ExtResource("16_foliage_realism")
+
 [node name="AnimalRenderV2" type="Node" parent="."]
 script = ExtResource("4_animals")
 
@@ -36,6 +46,9 @@ script = ExtResource("5_pbr")
 [node name="AnimalMotionV3" type="Node" parent="."]
 script = ExtResource("6_motion")
 
+[node name="InteractionReactions" type="Node" parent="."]
+script = ExtResource("18_touch_fx")
+
 [node name="AnimalSurfaceEffects" type="Node" parent="."]
 script = ExtResource("12_surface_fx")
 
@@ -44,6 +57,9 @@ script = ExtResource("7_ambient")
 
 [node name="EnvironmentSky" type="Node" parent="."]
 script = ExtResource("8_sky")
+
+[node name="WeatherFX" type="Node" parent="."]
+script = ExtResource("17_weather_fx")
 
 [node name="RelationshipRuntime" type="Node" parent="."]
 script = ExtResource("11_relationships")
