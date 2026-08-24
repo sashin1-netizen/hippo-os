@@ -144,6 +144,8 @@ jobs:
           grep -q 'LifelikeRendering="\*res://scripts/lifelike_rendering.gd"' project.godot
           grep -q 'config/version="0.2.2-personal"' project.godot
           grep -q 'stretch/aspect="expand"' project.godot
+          grep -q 'renderer/rendering_method="mobile"' project.godot
+          grep -q 'renderer/rendering_method.mobile="mobile"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
           grep -q '^name="Android"$' export_presets.cfg
           grep -q '^name="Android Play"$' export_presets.cfg
@@ -190,13 +192,27 @@ jobs:
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "package: name='com.sashin.hippoos.personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "targetSdkVersion:'36'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "versionCode='4'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "versionName='0.2.2-personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "native-code: 'arm64-v8a' 'x86_64'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          ! grep -q '^application-debuggable$' "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          BADGING="$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          BADGING_ERR="$GITHUB_WORKSPACE/build/HippoOS.badging.stderr.txt"
+          set +e
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > "$BADGING" 2> "$BADGING_ERR"
+          AAPT_STATUS=$?
+          set -e
+          cat "$BADGING"
+          cat "$BADGING_ERR" || true
+          test -s "$BADGING"
+          grep -q "package: name='com.sashin.hippoos.personal'" "$BADGING"
+          grep -q "targetSdkVersion:'36'" "$BADGING"
+          grep -q "versionCode='4'" "$BADGING"
+          grep -q "versionName='0.2.2-personal'" "$BADGING"
+          ! grep -q '^application-debuggable$' "$BADGING"
+          unzip -l "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.contents.txt"
+          grep -q 'lib/arm64-v8a/libgodot_android.so' "$GITHUB_WORKSPACE/build/HippoOS.contents.txt"
+          grep -q 'lib/x86_64/libgodot_android.so' "$GITHUB_WORKSPACE/build/HippoOS.contents.txt"
+          if [ "$AAPT_STATUS" -ne 0 ]; then
+            grep -q "failed to read attribute 'android:required'" "$BADGING_ERR"
+            echo 'aapt returned its known Vulkan uses-feature parser warning; core manifest metadata was still parsed and will be proven by PackageManager on Android 16.'
+          fi
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.zipalign.txt"
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
@@ -212,6 +228,8 @@ jobs:
             build/HippoOS-Personal.apk
             build/HippoOS.apk.sha256
             build/HippoOS.badging.txt
+            build/HippoOS.badging.stderr.txt
+            build/HippoOS.contents.txt
             build/HippoOS.signature.txt
             build/HippoOS.zipalign.txt
             build/godot-import.log
@@ -259,6 +277,7 @@ jobs:
             grep -q 'package:' apk/adb-package-path.txt
             adb shell dumpsys package com.sashin.hippoos.personal | tee apk/adb-package.txt
             grep -q 'versionCode=4' apk/adb-package.txt
+            grep -q 'targetSdk=36' apk/adb-package.txt
             adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb shell monkey -p com.sashin.hippoos.personal -c android.intent.category.LAUNCHER 1
             sleep 8
@@ -272,8 +291,9 @@ jobs:
             ! grep -q 'mCurrentFocus=.*ImmersiveModeConfirmation' apk/window-displays.txt
             adb exec-out screencap -p > apk/launch.png
             test -s apk/launch.png
-            adb logcat -d -t 400 > apk/adb-logcat.txt
+            adb logcat -d -t 600 > apk/adb-logcat.txt
             ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt
+            ! grep -Eiq 'godot.*(SceneShaderGLES3|Program linking failed|Fragment shader active uniforms exceed|SHADER ERROR|Shader compilation failed)' apk/adb-logcat.txt
 
       - name: Upload Android 16 install and visual evidence
         if: always()
@@ -320,4 +340,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS 0.2.2 Personal Android APK" \
-            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. Strict Godot script/autoload/shader compile and export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."
+            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. Godot Mobile renderer. Strict script/autoload/shader compile and export checks, 16 KB alignment verification, v2/v3 signature verification, PackageManager install + launch proof, runtime renderer error gate, and launch screenshot evidence are required before publication."
