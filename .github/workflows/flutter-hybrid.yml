@@ -159,20 +159,24 @@ jobs:
         working-directory: flutter_app
         run: flutter test test/sanctuary_contract_test.dart
 
-      - name: Build internal hybrid APK
+      - name: Build compact ARM64 preview APK
         working-directory: flutter_app
-        run: flutter build apk --debug
+        run: flutter build apk --release --target-platform android-arm64
 
-      - name: Verify internal build only
+      - name: Verify compact preview build
         run: |
           set -euxo pipefail
-          test -s flutter_app/build/app/outputs/flutter-apk/app-debug.apk
-          ls -lh flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          APK='flutter_app/build/app/outputs/flutter-apk/app-release.apk'
+          test -s "$APK"
+          ls -lh "$APK"
+          unzip -l "$APK" | grep 'lib/arm64-v8a/libgodot_android.so'
+          ! unzip -l "$APK" | grep -q 'lib/x86_64/libgodot_android.so'
+          ! unzip -l "$APK" | grep -q 'lib/armeabi-v7a/libgodot_android.so'
 
-      - name: Upload preview APK
+      - name: Upload compact preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Flutter-Preview
-          path: flutter_app/build/app/outputs/flutter-apk/app-debug.apk
+          name: HippoOS-Flutter-Preview-ARM64
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 7
