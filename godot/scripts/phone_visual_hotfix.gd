@@ -28,7 +28,6 @@ func _process(delta: float) -> void:
     if update_timer <= 0.0:
         update_timer = 0.25
         _apply_phone_lighting()
-        _repair_modern_hud()
 
 func _ensure_binding() -> void:
     var current_scene: Node = get_tree().current_scene
@@ -46,7 +45,6 @@ func _ensure_binding() -> void:
         fill_light.name = "PhoneReadabilityFill"
         fill_light.rotation_degrees = Vector3(-28.0, 142.0, 0.0)
         fill_light.shadow_enabled = false
-        fill_light.directional_shadow_max_distance = 0.0
         scene_root.add_child(fill_light)
 
 func _find_primary_sun(root: Node) -> DirectionalLight3D:
@@ -94,17 +92,6 @@ func _apply_phone_lighting() -> void:
     if is_instance_valid(fill_light):
         fill_light.light_color = Color(0.55, 0.66, 0.94).lerp(Color(0.86, 0.93, 0.88), daylight)
         fill_light.light_energy = lerpf(0.42, 0.18, daylight)
-
-func _repair_modern_hud() -> void:
-    if not is_instance_valid(scene_root):
-        return
-    var hud: Node = scene_root.find_child("GrasslandsSanctuaryHUD", true, false)
-    if hud == null:
-        return
-
-    var panel: Control = hud.find_child("*", true, false) as Control if false else null
-    # The HUD owns its responsive layout; this hotfix only ensures the legacy
-    # layers cannot cover it. Keep this method as the on-device repair hook.
 
 func _daylight_factor() -> float:
     if not is_instance_valid(scene_root):
