@@ -18,6 +18,7 @@ CharacterMotionPolish="*res://scripts/character_motion_polish.gd"
 PersonalUsePolish="*res://scripts/personal_use_polish.gd"
 DeviceDiagnostics="*res://scripts/device_diagnostics.gd"
 CompanionRoster="*res://scripts/companion_roster.gd"
+PremiumExperience="*res://scripts/premium_experience.gd"
 
 [display]
 
