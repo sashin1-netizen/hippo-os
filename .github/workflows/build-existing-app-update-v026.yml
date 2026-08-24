@@ -9,6 +9,13 @@ on:
       - '.github/test-signing/**'
       - '.github/scripts/**'
       - '.github/workflows/build-existing-app-update-v026.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - '.github/test-signing/**'
+      - '.github/scripts/**'
+      - '.github/workflows/build-existing-app-update-v026.yml'
 
 permissions:
   contents: write
@@ -119,6 +126,8 @@ jobs:
           grep -q '^size/viewport_width=720$' project.godot
           grep -q '^size/viewport_height=1280$' project.godot
           grep -q '^handheld/orientation=1$' project.godot
+          grep -Fq 'GameplayDirector="*res://scripts/gameplay_director.gd"' project.godot
+          bash ../.github/scripts/verify-gameplay-candidate.sh ..
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import.log
 
@@ -246,6 +255,7 @@ jobs:
           retention-days: 30
 
       - name: Publish installer-proven v0.2.6 APK
+        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
