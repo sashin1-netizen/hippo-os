@@ -18,7 +18,9 @@ extensions.configure<ApplicationExtension> {
     }
 
     defaultConfig {
-        applicationId = "com.sashin.hippoos"
+        // Preview package is intentionally separate from the final Hippo OS package
+        // so CI preview signatures can never conflict with an older installed build.
+        applicationId = "com.sashin.hippoos.preview"
         minSdk = 26
         targetSdk = 36
         versionCode = flutter.versionCode
@@ -32,7 +34,7 @@ extensions.configure<ApplicationExtension> {
     buildTypes {
         release {
             // Preview builds are release-optimized but use the temporary debug key.
-            // Final personal launch switches to the stable private signing key.
+            // Final personal launch switches back to com.sashin.hippoos and a stable private signing key.
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
