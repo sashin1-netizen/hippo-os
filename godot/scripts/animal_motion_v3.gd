@@ -1,7 +1,6 @@
 extends Node
 
 var host
-var last_actions = {}
 
 func _ready():
     for i in range(6):
@@ -19,31 +18,34 @@ func _process(_delta):
         if actor == null:
             continue
         var action = str(actor.get("current_action"))
-        if str(last_actions.get(animal_id, "")) == action:
+        var clip = _desired_action_clip(actor, action)
+        if clip.is_empty():
             continue
-        last_actions[animal_id] = action
-        _apply_action_clip(actor, action)
+        var player = actor.get("animation_player")
+        if player == null or not player is AnimationPlayer or not player.has_animation(clip):
+            continue
+        # animal_actor.gd maintains its own default locomotion/eat/rest animation loop.
+        # Reassert species-specific behaviour clips after the physics tick so actions such
+        # as rooting, wallowing, sniffing and observing remain visible for their full state.
+        if str(actor.get("active_animation")) != clip or player.current_animation != clip:
+            player.play(clip, 0.22)
+            actor.set("active_animation", clip)
 
-func _apply_action_clip(actor, action):
-    var player = actor.get("animation_player")
-    if player == null or not player is AnimationPlayer:
-        return
+func _desired_action_clip(actor, action):
     var species = str(actor.get("species_id"))
-    var clip = ""
     if species == "pygmy_hippo":
         if action == "wallow":
-            clip = "wallow"
-        elif action in ["investigate", "hide", "enter_water"]:
-            clip = "sniff"
+            return "wallow"
+        if action in ["investigate", "hide", "enter_water"]:
+            return "sniff"
     elif species == "pig":
         if action in ["root", "forage"]:
-            clip = "root"
-        elif action in ["investigate", "push_object"]:
-            clip = "sniff"
+            return "root"
+        if action in ["investigate", "push_object"]:
+            return "sniff"
     elif species == "shar_pei":
         if action in ["observe", "patrol"]:
-            clip = "observe"
-        elif action == "investigate":
-            clip = "sniff"
-    if not clip.is_empty() and player.has_animation(clip):
-        player.play(clip, 0.22)
+            return "observe"
+        if action == "investigate":
+            return "sniff"
+    return ""
