@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk"
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee build/HippoOS-UPDATE.badging.txt
+          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS-UPDATE.badging.txt 2> build/HippoOS-UPDATE.badging.stderr.txt || true
           grep -q "package: name='com.sashin.hippoos'" build/HippoOS-UPDATE.badging.txt
           grep -q "versionCode='101'" build/HippoOS-UPDATE.badging.txt
           grep -q "targetSdkVersion:'36'" build/HippoOS-UPDATE.badging.txt
@@ -106,6 +106,7 @@ jobs:
           path: |
             build/HippoOS-UPDATE-EXISTING.apk
             build/HippoOS-UPDATE.badging.txt
+            build/HippoOS-UPDATE.badging.stderr.txt
             build/HippoOS-UPDATE.signature.txt
             build/HippoOS-UPDATE.zipalign.txt
             build/HippoOS-UPDATE.sha256
