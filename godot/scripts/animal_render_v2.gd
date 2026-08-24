@@ -37,6 +37,7 @@ render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 uniform vec4 base_color : source_color = vec4(0.5, 0.4, 0.4, 1.0);
 uniform float roughness_base = 0.62;
 uniform float moisture = 0.15;
+uniform float mud_amount = 0.0;
 uniform float pore_scale = 18.0;
 uniform float wrinkle_strength = 0.05;
 uniform float fold_displacement = 0.001;
@@ -65,9 +66,13 @@ void fragment() {
     shaded *= 1.0 - folds * 0.18;
     float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
     shaded += vec3(0.018, 0.014, 0.012) * fresnel * moisture;
+    float lower_body = 1.0 - smoothstep(-0.10, 0.72, local_pos.y);
+    float mud_noise = 0.72 + hash31(floor(local_pos * 13.0)) * 0.28;
+    float mud_mask = clamp(mud_amount * lower_body * mud_noise, 0.0, 0.92);
+    shaded = mix(shaded, vec3(0.115, 0.066, 0.031), mud_mask * 0.82);
     ALBEDO = clamp(shaded, vec3(0.0), vec3(1.0));
-    ROUGHNESS = clamp(roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.10, 0.18, 0.96);
-    SPECULAR = clamp(0.30 + moisture * 0.28 + fresnel * 0.12, 0.2, 0.75);
+    ROUGHNESS = clamp(roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.10 + mud_mask * 0.12, 0.18, 0.98);
+    SPECULAR = clamp(0.30 + moisture * 0.28 + fresnel * 0.12 - mud_mask * 0.08, 0.18, 0.75);
 }
 """
 
@@ -121,6 +126,7 @@ func _apply_mesh_materials(mesh_instance, species):
         material.set_shader_parameter("base_color", source.albedo_color)
         material.set_shader_parameter("roughness_base", clamp(float(source.roughness), 0.28, 0.92))
         material.set_shader_parameter("moisture", _species_moisture(species, surface_name))
+        material.set_shader_parameter("mud_amount", 0.0)
         material.set_shader_parameter("pore_scale", _species_pore_scale(species))
         material.set_shader_parameter("wrinkle_strength", _species_wrinkles(species, surface_name))
         material.set_shader_parameter("fold_displacement", _species_fold_displacement(species, surface_name))
