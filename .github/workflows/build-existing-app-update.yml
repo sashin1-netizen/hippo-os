@@ -2,6 +2,13 @@ name: Build Existing Hippo OS Update APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: [polish/4k-lifelike-animals]
+    paths:
+      - 'godot/**'
+      - '.github/test-signing/**'
+      - '.github/scripts/**'
+      - '.github/workflows/build-existing-app-update.yml'
   pull_request:
     branches: [main]
     paths:
@@ -11,7 +18,7 @@ on:
       - '.github/workflows/build-existing-app-update.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-existing-update:
@@ -114,3 +121,22 @@ jobs:
             build/godot-export-existing-update.log
           if-no-files-found: error
           retention-days: 30
+      - name: Publish direct-download APK release
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: hippo-os-existing-update-v0.2.3
+        run: |
+          set -euxo pipefail
+          cp build/HippoOS-UPDATE-EXISTING.apk build/HippoOS-UPDATE.apk
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" build/HippoOS-UPDATE.apk --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" build/HippoOS-UPDATE.apk \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Hippo OS Existing App Update v0.2.3" \
+              --notes "Verified update APK for the existing com.sashin.hippoos installation. Version code 101. ARM64. Android target API 36. Install over the existing Hippo OS app; do not uninstall it first." \
+              --prerelease
+          fi
