@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource path="res://scripts/flutter_runtime_overlay.gd" type="Script" id="1_sanctuary"]
 [ext_resource path="res://scripts/visual_polish.gd" type="Script" id="2_polish"]
@@ -7,6 +7,7 @@
 [ext_resource path="res://scripts/environment_pbr.gd" type="Script" id="5_pbr"]
 [ext_resource path="res://scripts/animal_motion_v3.gd" type="Script" id="6_motion"]
 [ext_resource path="res://scripts/ambient_life.gd" type="Script" id="7_ambient"]
+[ext_resource path="res://scripts/environment_sky.gd" type="Script" id="8_sky"]
 
 [node name="HippoOSSanctuary" type="Node3D"]
 script = ExtResource("1_sanctuary")
@@ -28,3 +29,6 @@ script = ExtResource("6_motion")
 
 [node name="AmbientLife" type="Node" parent="."]
 script = ExtResource("7_ambient")
+
+[node name="EnvironmentSky" type="Node" parent="."]
+script = ExtResource("8_sky")
