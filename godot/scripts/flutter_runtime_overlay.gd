@@ -1,5 +1,6 @@
 extends "res://scripts/launch_shell.gd"
 
+const SanctuaryStateSchema = preload("res://scripts/sanctuary_state.gd")
 const PRIMARY_SAVE := "user://sanctuary_save.json"
 const BACKUP_SAVE := "user://sanctuary_save.bak.json"
 const TEMP_SAVE := "user://sanctuary_save.tmp.json"
@@ -213,13 +214,17 @@ func _is_valid_save(data) -> bool:
     if typeof(data) != TYPE_DICTIONARY:
         return false
     var version = int(data.get("save_version", 1))
-    if version < 1 or version > 100:
+    if version < 1 or version > SanctuaryStateSchema.SAVE_VERSION:
         return false
     var has_legacy = data.has("hippo_name")
     var animals_value = data.get("animals", {})
     if not has_legacy and typeof(animals_value) != TYPE_DICTIONARY:
         return false
     if data.has("settings") and typeof(data.get("settings")) != TYPE_DICTIONARY:
+        return false
+    if data.has("relationships") and typeof(data.get("relationships")) != TYPE_DICTIONARY:
+        return false
+    if data.has("customization") and typeof(data.get("customization")) != TYPE_DICTIONARY:
         return false
     if data.has("journal") and typeof(data.get("journal")) != TYPE_ARRAY:
         return false
