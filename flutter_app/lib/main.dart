@@ -1,3 +1,3 @@
-import 'open_world_app.dart';
+import 'production_app.dart';
 
-Future<void> main() => runOpenWorldApp();
+Future<void> main() => runProductionApp();
