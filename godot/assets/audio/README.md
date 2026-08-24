@@ -15,7 +15,7 @@ Hippo OS is offline-first. Nature ambience and selected real-animal recordings a
 | Local file | Use in Hippo OS | Source | Author | Licence | Source checksum (SHA-1) |
 | --- | --- | --- | --- | --- | --- |
 | `pig_grunt.ogg` | Porky contextual grunt | Wikimedia Commons — `Pig grunt - Erdie.ogg` | erdie / Freesound | CC BY 3.0 | `d036f878e0316e94e39bbf1035dcbe386b904707` |
-| `dog_bark.ogg` | Bao contextual dog bark | Wikimedia Commons — `George vuf 1996.ogg` | Broadbeer | Public domain | checksum pinned in `fetch-audio-assets.sh` |
+| `dog_bark.ogg` | Bao contextual dog bark | Wikimedia Commons — `George vuf 1996.ogg` | Broadbeer | Public domain | `87ae5549210a973ffa7c735b6251efd75f39d2ae` |
 
 The dog recording is a generic domestic-dog bark, not represented as a Shar-Pei-specific field recording. Bao uses it sparingly for contextual dog vocal behaviour. The pig recording is a real farm pig grunt. Hippo OS varies gain/pitch and positions these recordings at the animals in 3D; it does not present either recording as a complete species vocal library.
 
