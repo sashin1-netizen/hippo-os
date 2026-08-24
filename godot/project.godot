@@ -1,6 +1,6 @@
 [application]
 config/name="Hippo OS"
-config/version="0.2.5-reference"
+config/version="0.2.6-package-fix"
 config/icon="res://assets/branding/hippo_icon.svg"
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
@@ -19,6 +19,7 @@ PersonalUsePolish="*res://scripts/personal_use_polish.gd"
 StartupFailSafe="*res://scripts/startup_fail_safe.gd"
 DeviceDiagnostics="*res://scripts/device_diagnostics.gd"
 CompanionRoster="*res://scripts/companion_roster.gd"
+GameplayDirector="*res://scripts/gameplay_director.gd"
 ReferenceComposition="*res://scripts/reference_composition.gd"
 CompanionAudio="*res://scripts/companion_audio.gd"
 AnimalArtPolish="*res://scripts/animal_art_polish.gd"
