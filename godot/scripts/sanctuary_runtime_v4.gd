@@ -138,6 +138,13 @@ func _setup_flutter_bridge():
     if not Engine.has_singleton(FLUTTER_BRIDGE_NAME):
         return
     flutter_bridge = Engine.get_singleton(FLUTTER_BRIDGE_NAME)
+
+    # Flutter is the only UI surface in the hybrid build. The legacy Godot HUD
+    # remains available for standalone engine diagnostics but must never render
+    # underneath Flutter, otherwise controls and status panels are duplicated.
+    if ui_layer != null:
+        ui_layer.visible = false
+
     if flutter_bridge.has_signal("camera_mode_requested"):
         flutter_bridge.camera_mode_requested.connect(set_camera_mode)
     if flutter_bridge.has_signal("device_time_synced"):
