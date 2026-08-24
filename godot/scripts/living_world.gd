@@ -116,8 +116,43 @@ func _apply_animal_customization():
         return
     for animal_id in all_animals.keys():
         var actor = _animals.get(str(animal_id), null)
-        if actor != null and actor.has_method("apply_customization"):
-            actor.apply_customization(all_animals[animal_id])
+        var data = all_animals[animal_id]
+        if actor != null and typeof(data) == TYPE_DICTIONARY:
+            _apply_actor_customization(actor, data)
+
+func _apply_actor_customization(actor, data):
+    var model = actor.get("production_model")
+    if model is Node3D:
+        if not model.has_meta("living_base_scale"):
+            model.set_meta("living_base_scale", float(model.scale.x))
+        var base_scale = float(model.get_meta("living_base_scale"))
+        var requested_scale = clamp(float(data.get("body_scale", 1.0)), 0.88, 1.12)
+        model.scale = Vector3.ONE * base_scale * requested_scale
+
+    var state = actor.get("state")
+    if state == null:
+        return
+    var temperament = state.temperament
+    if typeof(temperament) != TYPE_DICTIONARY:
+        return
+
+    if not actor.has_meta("living_base_temperament"):
+        actor.set_meta("living_base_temperament", temperament.duplicate(true))
+    var base_temperament = actor.get_meta("living_base_temperament")
+    if typeof(base_temperament) != TYPE_DICTIONARY:
+        return
+
+    var curiosity_bias = clamp(float(data.get("curiosity_bias", 0.5)), 0.0, 1.0)
+    var social_bias = clamp(float(data.get("social_bias", 0.5)), 0.0, 1.0)
+    var energy_bias = clamp(float(data.get("energy_bias", 0.5)), 0.0, 1.0)
+
+    if base_temperament.has("curiosity"):
+        temperament["curiosity"] = clamp(float(base_temperament["curiosity"]) + (curiosity_bias - 0.5) * 0.35, 0.05, 0.98)
+    if base_temperament.has("social_tolerance"):
+        temperament["social_tolerance"] = clamp(float(base_temperament["social_tolerance"]) + (social_bias - 0.5) * 0.35, 0.05, 0.98)
+    if base_temperament.has("playfulness"):
+        temperament["playfulness"] = clamp(float(base_temperament["playfulness"]) + (energy_bias - 0.5) * 0.32, 0.05, 0.98)
+    state.temperament = temperament
 
 func _sanitize():
     var world = customization.get("world", {})
