@@ -23,6 +23,7 @@ func _check_project_files():
     var required = [
         "res://project.godot",
         "res://sanctuary_v3.tscn",
+        "res://scripts/flutter_runtime_overlay.gd",
         "res://scripts/launch_shell.gd",
         "res://scripts/sanctuary_v3.gd",
         "res://scripts/sanctuary_runtime_v4.gd",
@@ -60,6 +61,7 @@ func _check_project_files():
 
 func _check_runtime_modules():
     var scripts = [
+        "res://scripts/flutter_runtime_overlay.gd",
         "res://scripts/launch_shell.gd",
         "res://scripts/sanctuary_v3.gd",
         "res://scripts/sanctuary_runtime_v4.gd",
