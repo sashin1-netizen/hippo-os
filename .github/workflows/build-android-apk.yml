@@ -259,13 +259,21 @@ jobs:
             grep -q 'package:' apk/adb-package-path.txt
             adb shell dumpsys package com.sashin.hippoos.personal | tee apk/adb-package.txt
             grep -q 'versionCode=4' apk/adb-package.txt
+            adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb shell monkey -p com.sashin.hippoos.personal -c android.intent.category.LAUNCHER 1
             sleep 8
             adb shell pidof com.sashin.hippoos.personal | tee apk/adb-pid.txt
             test -s apk/adb-pid.txt
+            adb shell dumpsys window displays > apk/window-displays.txt
+            if grep -q 'ImmersiveModeConfirmation' apk/window-displays.txt; then
+              adb shell input tap 1700 500
+              sleep 3
+              adb shell dumpsys window displays > apk/window-displays.txt
+            fi
+            grep -q 'com.sashin.hippoos.personal' apk/window-displays.txt
+            ! grep -q 'mCurrentFocus=.*ImmersiveModeConfirmation' apk/window-displays.txt
             adb exec-out screencap -p > apk/launch.png
             test -s apk/launch.png
-            adb shell dumpsys window displays > apk/window-displays.txt
             adb logcat -d -t 400 > apk/adb-logcat.txt
             ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt
 
