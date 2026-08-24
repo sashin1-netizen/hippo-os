@@ -6,6 +6,14 @@ extends Node
 
 const SAVE_PATH := "user://hippo_sanctuary_weather.json"
 const CONDITIONS := ["clear", "partly_cloudy", "overcast", "drizzle", "rain", "breezy"]
+const WEATHER_TITLES := {
+    "clear": "CLEAR",
+    "partly_cloudy": "PARTLY CLOUDY",
+    "overcast": "OVERCAST",
+    "drizzle": "DRIZZLE",
+    "rain": "LIGHT RAIN",
+    "breezy": "WARM BREEZE"
+}
 const MIN_DURATION := 18 * 60
 const MAX_DURATION := 42 * 60
 
@@ -207,15 +215,8 @@ func _update_hud(condition: String) -> void:
     if not (label_variant is Label):
         return
     var label := label_variant as Label
-    var title := {
-        "clear": "CLEAR",
-        "partly_cloudy": "PARTLY CLOUDY",
-        "overcast": "OVERCAST",
-        "drizzle": "DRIZZLE",
-        "rain": "LIGHT RAIN",
-        "breezy": "WARM BREEZE"
-    }.get(condition, "CLEAR")
-    label.text = "%s  •  %d°C  •  %d km/h" % [str(title), int(round(_temperature_c())), int(round(float(state.get("wind_kmh", 7.0))))]
+    var title: String = str(WEATHER_TITLES.get(condition, "CLEAR"))
+    label.text = "%s  •  %d°C  •  %d km/h" % [title, int(round(_temperature_c())), int(round(float(state.get("wind_kmh", 7.0))))]
     label.tooltip_text = "Simulated offline sanctuary weather"
 
 func _temperature_c() -> float:
