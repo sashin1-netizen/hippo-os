@@ -35,6 +35,7 @@ jobs:
       GODOT_ANDROID_KEYSTORE_RELEASE_USER: hippoospersonal
       GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: hippoos-personal
       HIPPOOS_TEST_CERT_SHA256: 3f19983ae8a86f7f7b20fa6be17b69882879c76a747f5d7744a6b063717f1dc2
+      GODOT_TEMPLATE_VERSION: 4.7.2.stable
     steps:
       - uses: actions/checkout@v5
 
@@ -95,18 +96,23 @@ jobs:
       - name: Fetch verified runtime assets
         run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
 
-      - name: Install modern Android Gradle build template
+      - name: Install official Android Gradle build template
         shell: bash
         working-directory: godot
         run: |
           set -euxo pipefail
           mkdir -p ../build
           rm -rf android
-          "$ANDROID_HOME/platform-tools/adb" start-server || true
-          godot --headless --editor --path . --install-android-build-template --quit 2>&1 | tee ../build/godot-install-gradle-template.log
-          test -d android/build
-          test -f android/build/build.gradle
-          grep -q 'com.android.application' android/build/build.gradle
+          TEMPLATE="$HOME/.local/share/godot/export_templates/$GODOT_TEMPLATE_VERSION/android_source.zip"
+          test -s "$TEMPLATE"
+          unzip -l "$TEMPLATE" | tee ../build/godot-android-source-template.txt
+          mkdir -p android/build
+          unzip -q "$TEMPLATE" -d android/build
+          printf '%s\n' "$GODOT_TEMPLATE_VERSION" > android/.build_version
+          test -x android/build/gradlew
+          test -f android/build/app/build.gradle
+          grep -q 'com.android.application' android/build/app/build.gradle
+          cat android/.build_version
 
       - name: Validate update identity and portrait production target
         shell: bash
@@ -260,7 +266,7 @@ jobs:
             build/adb-install-package-fix.txt
             build/adb-package-path.txt
             build/adb-package.txt
-            build/godot-install-gradle-template.log
+            build/godot-android-source-template.txt
             build/godot-import-existing-update.log
             build/godot-export-existing-update.log
             build/godot-export-install-ci.log
