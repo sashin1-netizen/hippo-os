@@ -3,6 +3,7 @@ extends RefCounted
 const SAVE_VERSION = 6
 const MAX_OFFLINE_MINUTES = 4320.0
 const MAX_JOURNAL_EVENTS = 250
+const CAMERA_MODES = ["cinematic", "caretaker", "bodycam", "overhead"]
 
 var animals = {}
 var relationships = {}
@@ -17,6 +18,9 @@ var settings = {
     "camera_sensitivity": 1.0,
     "text_scale": 1.0,
     "time_mode": "automatic",
+    "camera_mode": "cinematic",
+    "device_timezone": "Local",
+    "device_utc_offset_minutes": 0,
     "onboarding_complete": false
 }
 var customization = {
@@ -148,8 +152,6 @@ func from_dict(data):
 
     var now = int(Time.get_unix_time_from_system())
     last_save_unix = int(migrated.get("last_save_unix", now))
-    # A device clock can move backwards/forwards. A save timestamp far in the future
-    # must never create negative or impossible offline simulation later.
     last_save_unix = clamp(last_save_unix, 0, now + 300)
     return true
 
@@ -170,8 +172,12 @@ func _sanitize_settings():
     settings["show_stats"] = bool(settings.get("show_stats", true))
     settings["reduced_motion"] = bool(settings.get("reduced_motion", false))
     settings["onboarding_complete"] = bool(settings.get("onboarding_complete", false))
-    if str(settings.get("time_mode", "automatic")) != "automatic":
-        settings["time_mode"] = "automatic"
+    settings["time_mode"] = "automatic"
+    var camera_mode = str(settings.get("camera_mode", "cinematic")).to_lower()
+    settings["camera_mode"] = camera_mode if camera_mode in CAMERA_MODES else "cinematic"
+    var timezone = str(settings.get("device_timezone", "Local")).strip_edges()
+    settings["device_timezone"] = timezone.substr(0, min(timezone.length(), 96)) if not timezone.is_empty() else "Local"
+    settings["device_utc_offset_minutes"] = clamp(int(settings.get("device_utc_offset_minutes", 0)), -14 * 60, 14 * 60)
 
 func _sanitize_customization():
     var interface = customization.get("interface", {})
