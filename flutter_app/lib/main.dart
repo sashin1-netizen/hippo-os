@@ -53,12 +53,17 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
   String _status = 'Sanctuary online';
   String _zone = 'LOCAL TIME';
   StreamSubscription<dynamic>? _eventSubscription;
+  Timer? _clockSyncTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _syncRealTime();
+    _clockSyncTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _syncRealTime(),
+    );
     _eventSubscription = _events.receiveBroadcastStream().listen(
       _handleEngineEvent,
       onError: (_) {},
@@ -67,6 +72,7 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
 
   @override
   void dispose() {
+    _clockSyncTimer?.cancel();
     _eventSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
