@@ -8,14 +8,18 @@ on:
       - 'godot/**'
       - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
+      - '.github/scripts/verify-production-release.sh'
       - '.github/workflows/build-android-apk.yml'
+      - '.github/workflows/build-play-aab.yml'
   pull_request:
     branches: [main]
     paths:
       - 'godot/**'
       - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
+      - '.github/scripts/verify-production-release.sh'
       - '.github/workflows/build-android-apk.yml'
+      - '.github/workflows/build-play-aab.yml'
 
 permissions:
   contents: write
@@ -141,16 +145,17 @@ jobs:
           grep -q 'config/version="0.2.2-personal"' project.godot
           grep -q 'stretch/aspect="expand"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
-          grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
-          ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
-          ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
+          grep -q '^name="Android"$' export_presets.cfg
+          grep -q '^name="Android Play"$' export_presets.cfg
+          grep -q 'custom_features="production_release"' export_presets.cfg
           grep -q 'version/code=4' export_presets.cfg
           grep -q 'version/name="0.2.2-personal"' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos.personal"' export_presets.cfg
+          grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -q 'architectures/arm64-v8a=true' export_presets.cfg
-          grep -q 'architectures/x86_64=true' export_presets.cfg
           grep -q 'screen/immersive_mode=true' export_presets.cfg
           grep -q 'screen/edge_to_edge=true' export_presets.cfg
+          bash -n ../.github/scripts/verify-production-release.sh
 
           fail_on_godot_errors() {
             local log="$1"
@@ -255,13 +260,16 @@ jobs:
             adb shell dumpsys package com.sashin.hippoos.personal | tee apk/adb-package.txt
             grep -q 'versionCode=4' apk/adb-package.txt
             adb shell monkey -p com.sashin.hippoos.personal -c android.intent.category.LAUNCHER 1
-            sleep 5
+            sleep 8
             adb shell pidof com.sashin.hippoos.personal | tee apk/adb-pid.txt
             test -s apk/adb-pid.txt
-            adb logcat -d -t 300 > apk/adb-logcat.txt
+            adb exec-out screencap -p > apk/launch.png
+            test -s apk/launch.png
+            adb shell dumpsys window displays > apk/window-displays.txt
+            adb logcat -d -t 400 > apk/adb-logcat.txt
             ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt
 
-      - name: Upload Android 16 install evidence
+      - name: Upload Android 16 install and visual evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -272,6 +280,8 @@ jobs:
             apk/adb-package.txt
             apk/adb-pid.txt
             apk/adb-logcat.txt
+            apk/window-displays.txt
+            apk/launch.png
           if-no-files-found: warn
           retention-days: 30
 
@@ -304,4 +314,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS 0.2.2 Personal Android APK" \
-            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. ARM64 + x86_64. Strict Godot script/autoload/shader compile and export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."
+            --notes "Release-mode personal APK. Version 0.2.2-personal / code 4. Clean package identity com.sashin.hippoos.personal. Target Android 16 / API 36. Strict Godot script/autoload/shader compile and export checks, 16 KB zip alignment verification, v2/v3 signature verification, and a real PackageManager install + launch test on an Android 16/API 36 emulator must pass before this release is published."
