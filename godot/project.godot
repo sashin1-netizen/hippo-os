@@ -17,6 +17,7 @@ VisualSanctuaryPolish="*res://scripts/visual_sanctuary_polish.gd"
 CharacterMotionPolish="*res://scripts/character_motion_polish.gd"
 PersonalUsePolish="*res://scripts/personal_use_polish.gd"
 DeviceDiagnostics="*res://scripts/device_diagnostics.gd"
+CompanionRoster="*res://scripts/companion_roster.gd"
 
 [display]
 
