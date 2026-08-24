@@ -24,9 +24,9 @@ permissions:
 
 jobs:
   flutter-godot-hybrid:
-    name: Validate Flutter + Godot hybrid
+    name: Validate Flutter + Godot open-world hybrid
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     env:
       GODOT_VERSION: 4.7.2
       ANYCREATURE_COMMIT: ab5b1ce5c13e632f00f7f7cbfdb7a746e315000d
@@ -40,7 +40,7 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Compile original rigged animals
+      - name: Compile original refined rigged animals
         shell: bash
         run: |
           set -euxo pipefail
@@ -75,8 +75,9 @@ jobs:
           test -s godot/assets/textures/brown_mud_03_diff_4k.jpg
           test -s godot/assets/textures/brown_mud_03_nor_gl_4k.jpg
           test -s godot/assets/textures/brown_mud_03_rough_4k.jpg
+          test -s godot/assets/textures/kloofendal_38d_partly_cloudy_puresky.jpg
 
-      - name: Download licensed animal recordings
+      - name: Download licensed authentic animal recordings
         shell: bash
         run: |
           set -euxo pipefail
@@ -87,7 +88,9 @@ jobs:
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Dog.ogg' \
             -o godot/assets/audio/dog_natural.ogg
-          cp godot/assets/audio/dog_natural.ogg godot/assets/audio/dog_bark.ogg
+          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ladrido%20perro.ogg' \
+            -o godot/assets/audio/dog_bark.ogg
           HIPPO_PAGE="$(mktemp)"
           curl --fail --location --retry 4 --user-agent 'Mozilla/5.0 HippoOS-build/1.0' \
             'https://freesound.org/people/toadie/sounds/194870/' -o "$HIPPO_PAGE"
@@ -99,9 +102,10 @@ jobs:
           test -n "$HIPPO_PREVIEW"
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' "$HIPPO_PREVIEW" \
             -o godot/assets/audio/hippo_grunts.mp3
-          test -s godot/assets/audio/pig_grunt.ogg
-          test -s godot/assets/audio/dog_bark.ogg
-          test -s godot/assets/audio/hippo_grunts.mp3
+          test "$(stat -c%s godot/assets/audio/pig_grunt.ogg)" -gt 8000
+          test "$(stat -c%s godot/assets/audio/dog_natural.ogg)" -gt 1000000
+          test "$(stat -c%s godot/assets/audio/dog_bark.ogg)" -gt 30000
+          test "$(stat -c%s godot/assets/audio/hippo_grunts.mp3)" -gt 100000
 
       - name: Set up Godot 4.7.2
         uses: chickensoft-games/setup-godot@v2.4.1
@@ -110,16 +114,18 @@ jobs:
           use-dotnet: false
           include-templates: false
 
-      - name: Import and parse sanctuary
+      - name: Import and parse open-world sanctuary
         working-directory: godot
         run: |
           set -euxo pipefail
           godot --headless --editor --path . --import --quit 2>&1 | tee /tmp/godot-import.log
           ! grep -q 'SCRIPT ERROR' /tmp/godot-import.log
           ! grep -q 'Error importing' /tmp/godot-import.log
-          timeout 20s godot --headless --path . --quit-after 5 2>&1 | tee /tmp/godot-smoke.log
+          timeout 25s godot --headless --path . --quit-after 7 2>&1 | tee /tmp/godot-smoke.log
           ! grep -q 'SCRIPT ERROR' /tmp/godot-smoke.log
           ! grep -q 'Failed loading resource' /tmp/godot-smoke.log
+          ! grep -q 'Invalid set index' /tmp/godot-smoke.log
+          ! grep -q 'Invalid call' /tmp/godot-smoke.log
 
       - name: Run personal release self-test
         working-directory: godot
@@ -192,18 +198,32 @@ jobs:
           test -s "$ASSET_DIR/assets/models/mochi_pygmy_hippo.glb"
           test -s "$ASSET_DIR/assets/textures/leafy_grass_diff_4k.jpg"
           test -s "$ASSET_DIR/assets/textures/brown_mud_03_diff_4k.jpg"
+          test -s "$ASSET_DIR/assets/textures/kloofendal_38d_partly_cloudy_puresky.jpg"
+          test -f "$ASSET_DIR/scripts/open_world_controller.gd"
+          test -f "$ASSET_DIR/scripts/open_world_environment.gd"
+          test -f "$ASSET_DIR/scripts/relationship_runtime.gd"
+          test -f "$ASSET_DIR/scripts/animal_surface_effects.gd"
 
       - name: Resolve Flutter dependencies
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Analyze Flutter shell
+      - name: Analyze Flutter open-world shell
         working-directory: flutter_app
         run: flutter analyze
 
       - name: Run Flutter contract tests
         working-directory: flutter_app
         run: flutter test test/sanctuary_contract_test.dart
+
+      - name: Verify open-world Flutter entrypoint
+        shell: bash
+        run: |
+          set -euxo pipefail
+          grep -q "open_world_app.dart" flutter_app/lib/main.dart
+          grep -q "runOpenWorldApp" flutter_app/lib/main.dart
+          grep -q "roam:" flutter_app/lib/open_world_app.dart
+          grep -q "BODYCAM" flutter_app/lib/open_world_app.dart
 
       - name: Build phone-sized ARM64 preview APK
         working-directory: flutter_app
@@ -236,10 +256,10 @@ jobs:
           grep -q "package: name='com.sashin.hippoos.preview'" /tmp/hippo-apk-badging.txt
           grep -q "application-label:'Hippo OS Preview'" /tmp/hippo-apk-badging.txt
 
-      - name: Upload phone preview APK
+      - name: Upload phone preview APK for internal QA
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Living-Preview-ARM64
+          name: HippoOS-OpenWorld-Internal-ARM64
           path: flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7
