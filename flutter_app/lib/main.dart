@@ -123,7 +123,7 @@ class _SanctuaryScreenState extends State<SanctuaryScreen>
       _species = '${event['species_name'] ?? _species}';
       _status = '${event['status'] ?? _status}';
       if (restoredCustomization != null) {
-        _customization = restoredCustomization!;
+        _customization = restoredCustomization;
       }
       if (wind != null && humidity != null) {
         _worldPulse =
