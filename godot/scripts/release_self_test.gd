@@ -36,6 +36,7 @@ func _check_project_files():
         "res://scripts/living_world.gd",
         "res://scripts/environment_v2.gd",
         "res://scripts/environment_pbr.gd",
+        "res://scripts/environment_sky.gd",
         "res://scripts/animal_render_v2.gd",
         "res://scripts/animal_motion_v3.gd",
         "res://scripts/ambient_life.gd",
@@ -75,6 +76,7 @@ func _check_runtime_modules():
         "res://scripts/living_world.gd",
         "res://scripts/environment_v2.gd",
         "res://scripts/environment_pbr.gd",
+        "res://scripts/environment_sky.gd",
         "res://scripts/animal_render_v2.gd",
         "res://scripts/animal_motion_v3.gd",
         "res://scripts/ambient_life.gd"
@@ -139,18 +141,19 @@ func _check_4k_visual_assets():
         "res://assets/textures/leafy_grass_rough_4k.jpg",
         "res://assets/textures/brown_mud_03_diff_4k.jpg",
         "res://assets/textures/brown_mud_03_nor_gl_4k.jpg",
-        "res://assets/textures/brown_mud_03_rough_4k.jpg"
+        "res://assets/textures/brown_mud_03_rough_4k.jpg",
+        "res://assets/textures/kloofendal_38d_partly_cloudy_puresky.jpg"
     ]
     for path in textures:
         if not FileAccess.file_exists(path):
-            failures.append("4K habitat texture missing: " + path)
+            failures.append("4K visual asset missing: " + path)
             continue
         var texture = load(path)
         if texture == null or not texture is Texture2D:
-            failures.append("4K habitat texture failed to import: " + path)
+            failures.append("4K visual asset failed to import: " + path)
             continue
-        if texture.get_width() < 3840 or texture.get_height() < 3840:
-            failures.append("Habitat texture is below 4K source resolution: " + path)
+        if texture.get_width() < 3840 or texture.get_height() < 1920:
+            failures.append("Visual asset is below 4K-class source resolution: " + path)
 
 func _find_animation_player(node):
     if node is AnimationPlayer:
