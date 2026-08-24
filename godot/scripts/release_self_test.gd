@@ -43,7 +43,8 @@ func _required_runtime_modules():
         "res://scripts/animal_render_v2.gd",
         "res://scripts/animal_motion_v3.gd",
         "res://scripts/animal_surface_effects.gd",
-        "res://scripts/ambient_life.gd"
+        "res://scripts/ambient_life.gd",
+        "res://scripts/performance_lod.gd"
     ]
 
 func _check_project_files():
@@ -96,7 +97,8 @@ func _check_open_world_scene_contract():
         "RelationshipRuntime",
         "AnimalSurfaceEffects",
         "AmbientLife",
-        "EnvironmentSky"
+        "EnvironmentSky",
+        "PerformanceLOD"
     ]
     for node_name in required_nodes:
         if not ("name=\"%s\"" % node_name) in scene_text:
@@ -198,5 +200,5 @@ func _check_export_presets():
         failures.append("APK export platform is not Android")
     if apk_package != "com.sashin.hippoos":
         failures.append("Unexpected Android package name")
-    if apk_version.is_empty():
-        failures.append("Android version name missing")
+    if apk_version != "1.0.0":
+        failures.append("Android version name must be 1.0.0")
