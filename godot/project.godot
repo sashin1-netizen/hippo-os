@@ -7,6 +7,8 @@ boot_splash/show_image=false
 [autoload]
 AudioDirector="*res://scripts/audio_director.gd"
 AudioControls="*res://scripts/audio_controls.gd"
+BioAcoustics="*res://scripts/bioacoustic_director.gd"
+AdaptiveSoundscape="*res://scripts/adaptive_soundscape.gd"
 
 [display]
 
