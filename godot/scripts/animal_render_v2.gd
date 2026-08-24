@@ -100,9 +100,12 @@ func _apply_mesh_materials(mesh_instance, species):
         var source = mesh_instance.get_active_material(surface_index)
         if source == null:
             continue
-        var node_name = str(mesh_instance.name).to_lower()
-        if "eye" in node_name:
+        var surface_name = (str(mesh_instance.name) + " " + str(source.resource_name)).to_lower()
+        if "eye" in surface_name:
             mesh_instance.set_surface_override_material(surface_index, _eye_material(source))
+            continue
+        if "nose" in surface_name:
+            mesh_instance.set_surface_override_material(surface_index, _nose_material(source, species))
             continue
         if not source is StandardMaterial3D:
             continue
@@ -110,9 +113,9 @@ func _apply_mesh_materials(mesh_instance, species):
         material.shader = skin_shader
         material.set_shader_parameter("base_color", source.albedo_color)
         material.set_shader_parameter("roughness_base", clamp(float(source.roughness), 0.28, 0.92))
-        material.set_shader_parameter("moisture", _species_moisture(species, node_name))
+        material.set_shader_parameter("moisture", _species_moisture(species, surface_name))
         material.set_shader_parameter("pore_scale", _species_pore_scale(species))
-        material.set_shader_parameter("wrinkle_strength", _species_wrinkles(species, node_name))
+        material.set_shader_parameter("wrinkle_strength", _species_wrinkles(species, surface_name))
         mesh_instance.set_surface_override_material(surface_index, material)
 
 func _eye_material(source):
@@ -120,18 +123,28 @@ func _eye_material(source):
     var source_color = Color(0.055, 0.038, 0.028)
     if source is StandardMaterial3D:
         source_color = source.albedo_color
-    material.albedo_color = source_color.darkened(0.38)
-    material.roughness = 0.075
+    material.albedo_color = source_color.darkened(0.30)
+    material.roughness = 0.035
     material.metallic = 0.0
     return material
 
-func _species_moisture(species, node_name):
-    if "nose" in node_name or "muzzle" in node_name:
-        return 0.58
+func _nose_material(source, species):
+    var material = StandardMaterial3D.new()
+    var source_color = Color(0.10, 0.075, 0.065)
+    if source is StandardMaterial3D:
+        source_color = source.albedo_color
+    material.albedo_color = source_color
+    material.roughness = 0.12 if species != "shar_pei" else 0.16
+    material.metallic = 0.0
+    return material
+
+func _species_moisture(species, surface_name):
+    if "muzzle" in surface_name:
+        return 0.52
     if species == "pygmy_hippo":
-        return 0.42
+        return 0.46
     if species == "pig":
-        return 0.24
+        return 0.25
     return 0.10
 
 func _species_pore_scale(species):
@@ -141,11 +154,13 @@ func _species_pore_scale(species):
         return 18.0
     return 23.0
 
-func _species_wrinkles(species, node_name):
+func _species_wrinkles(species, surface_name):
     if species == "shar_pei":
-        if "head" in node_name or "neck" in node_name:
-            return 0.42
-        return 0.27
+        if "head" in surface_name or "neck" in surface_name:
+            return 0.48
+        if "body" in surface_name:
+            return 0.31
+        return 0.22
     if species == "pygmy_hippo":
         return 0.06
     return 0.035
