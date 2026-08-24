@@ -6,12 +6,14 @@ on:
     branches: [main]
     paths:
       - 'godot/**'
+      - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
       - '.github/workflows/build-android-apk.yml'
   pull_request:
     branches: [main]
     paths:
       - 'godot/**'
+      - '.github/test-signing/**'
       - '.github/scripts/fetch-audio-assets.sh'
       - '.github/workflows/build-android-apk.yml'
 
@@ -32,9 +34,10 @@ jobs:
       GODOT_VERSION: 4.7.2
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-      GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
-      GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-      GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+      GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/hippoos-personal.keystore
+      GODOT_ANDROID_KEYSTORE_DEBUG_USER: hippoospersonal
+      GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: hippoos-personal
+      HIPPOOS_TEST_CERT_SHA256: 3f19983ae8a86f7f7b20fa6be17b69882879c76a747f5d7744a6b063717f1dc2
 
     steps:
       - name: Checkout
@@ -66,23 +69,19 @@ jobs:
           "$ANDROID_HOME/build-tools/36.1.0/aapt" version
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
 
-      - name: Generate debug signing key
+      - name: Install stable personal test signing key
         shell: bash
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.android"
-          if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair \
-              -keystore "$HOME/.android/debug.keystore" \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname 'CN=Android Debug,O=Hippo OS,C=ZA'
-          fi
-          test -s "$HOME/.android/debug.keystore"
+          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          test -s "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH"
+          keytool -list -v \
+            -keystore "$GODOT_ANDROID_KEYSTORE_DEBUG_PATH" \
+            -storepass "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD" \
+            -alias "$GODOT_ANDROID_KEYSTORE_DEBUG_USER" | tee build-key.txt
+          grep -q '3F:19:98:3A:E8:A8:6F:7F:7B:20:FA:6B:E1:7B:69:88:28:79:C7:6A:74:7F:5D:77:44:A6:B0:63:71:7F:1D:C2' build-key.txt
+          rm -f build-key.txt
 
       - name: Set up Godot 4.7.2 with export templates
         uses: chickensoft-games/setup-godot@v2
@@ -112,51 +111,68 @@ jobs:
           set -euxo pipefail
           bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
 
-      - name: Validate Godot project
-        shell: bash
-        working-directory: godot
-        run: |
-          set -euxo pipefail
-          test -f project.godot
-          test -f main.tscn
-          test -f export_presets.cfg
-          test -f scripts/save_migrator.gd
-          test -f scripts/personal_use_polish.gd
-          test -s assets/audio/forest_ambience.ogg
-          test -s assets/audio/water_stream.ogg
-          test -s assets/audio/birds_garden.ogg
-          test -s assets/branding/hippo_icon.svg
-          test -s assets/branding/hippo_icon_foreground.svg
-          test -s assets/branding/hippo_icon_background.svg
-          test -s assets/branding/hippo_icon_monochrome.svg
-          grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
-          grep -q 'AudioDirector="\*res://scripts/audio_director.gd"' project.godot
-          grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
-          grep -q 'stretch/aspect="expand"' project.godot
-          grep -q 'config/version="0.2.0-personal"' project.godot
-          grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
-          grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
-          ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
-          ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
-          grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
-          grep -q 'architectures/arm64-v8a=true' export_presets.cfg
-          grep -q 'screen/immersive_mode=true' export_presets.cfg
-          grep -q 'screen/edge_to_edge=true' export_presets.cfg
-          grep -q 'launcher_icons/adaptive_monochrome_432x432=' export_presets.cfg
-          godot --headless --editor --path . --import --quit
-          godot --headless --path . --quit-after 3
-
-      - name: Export debug APK
+      - name: Strictly validate Godot project
         shell: bash
         working-directory: godot
         run: |
           set -euxo pipefail
           mkdir -p ../build
-          godot --headless --verbose --path . --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk"
+          test -f project.godot
+          test -f main.tscn
+          test -f export_presets.cfg
+          test -f scripts/save_migrator.gd
+          test -f scripts/personal_use_polish.gd
+          test -f scripts/device_diagnostics.gd
+          test -f scripts/atmosphere_polish.gd
+          test -f scripts/visual_sanctuary_polish.gd
+          test -f scripts/character_motion_polish.gd
+          test -s assets/audio/forest_ambience.ogg
+          test -s assets/audio/water_stream.ogg
+          test -s assets/audio/birds_garden.ogg
+          test -s assets/branding/hippo_icon.svg
+          grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
+          grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
+          grep -q 'DeviceDiagnostics="\*res://scripts/device_diagnostics.gd"' project.godot
+          grep -q 'config/version="0.2.1-personal"' project.godot
+          grep -q 'stretch/aspect="expand"' project.godot
+          grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
+          grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
+          ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
+          ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
+          grep -q 'version/code=3' export_presets.cfg
+          grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
+          grep -q 'architectures/arm64-v8a=true' export_presets.cfg
+          grep -q 'screen/immersive_mode=true' export_presets.cfg
+          grep -q 'screen/edge_to_edge=true' export_presets.cfg
+
+          fail_on_godot_errors() {
+            local log="$1"
+            if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling' "$log"; then
+              echo "Godot script/autoload failure detected in $log" >&2
+              cat "$log" >&2
+              exit 1
+            fi
+          }
+
+          godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import.log
+          fail_on_godot_errors ../build/godot-import.log
+          godot --headless --path . --quit-after 3 2>&1 | tee ../build/godot-smoke.log
+          fail_on_godot_errors ../build/godot-smoke.log
+
+      - name: Export debug APK with strict log gate
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --verbose --path . --export-debug Android "$GITHUB_WORKSPACE/build/HippoOS.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export.log"
+          if grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to create an autoload|Failed to instantiate an autoload|is not compiling' "$GITHUB_WORKSPACE/build/godot-export.log"; then
+            echo 'Godot export contained script/autoload failures' >&2
+            exit 1
+          fi
           test -s "$GITHUB_WORKSPACE/build/HippoOS.apk"
           ls -lh "$GITHUB_WORKSPACE/build/HippoOS.apk"
 
-      - name: Verify APK package, SDK and signature
+      - name: Verify APK package, SDK, version and stable signature
         shell: bash
         run: |
           set -euxo pipefail
@@ -164,8 +180,10 @@ jobs:
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "package: name='com.sashin.hippoos'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "targetSdkVersion:'36'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
-          grep -q "versionCode='2'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "versionCode='3'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "versionName='0.2.1-personal'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
+          grep -qi "$HIPPOOS_TEST_CERT_SHA256" "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.apk.sha256"
 
       - name: Upload verified build artifact
@@ -177,6 +195,9 @@ jobs:
             build/HippoOS.apk.sha256
             build/HippoOS.badging.txt
             build/HippoOS.signature.txt
+            build/godot-import.log
+            build/godot-smoke.log
+            build/godot-export.log
           if-no-files-found: error
           retention-days: 30
 
@@ -196,4 +217,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS Android APK · Build ${{ github.run_number }}" \
-            --notes "Verified ARM64 personal-use Android APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. Includes immersive spatial audio, adaptive pygmy-hippo bioacoustics, responsive safe-area UI, save migration, startup/About privacy UX and Android launcher identity. The APK was signature-checked and its SHA-256 is attached."
+            --notes "Verified ARM64 personal-use Android APK built from main with Godot 4.7.2. Version 0.2.1-personal / code 3. Package com.sashin.hippoos. Target Android 16 / API 36. Strict CI rejects GDScript/autoload failures and verifies the stable Hippo OS personal-test signing certificate."
