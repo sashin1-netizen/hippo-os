@@ -284,7 +284,7 @@ class _SliderRow extends StatelessWidget {
         SizedBox(width: 124, child: Text(label)),
         Expanded(
           child: Slider(
-            value: value.clamp(min, max),
+            value: value.clamp(min, max).toDouble(),
             min: min,
             max: max,
             onChanged: onChanged,
