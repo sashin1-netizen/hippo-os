@@ -59,13 +59,21 @@ jobs:
           test -s godot/assets/models/truffle_pig.glb
           test -s godot/assets/models/bao_shar_pei.glb
 
-      - name: Generate original sanctuary audio
+      - name: Generate sanctuary production assets
         run: |
           set -euxo pipefail
           python3 Tools/generate_release_audio.py
           test -s godot/assets/audio/sanctuary_ambience.wav
           test -s godot/assets/audio/water_splash.wav
           test -s godot/assets/audio/mud_squelch.wav
+          test -s godot/assets/audio/eat_crunch.wav
+          test -s godot/assets/audio/drink_lap.wav
+          test -s godot/assets/textures/leafy_grass_diff_4k.jpg
+          test -s godot/assets/textures/leafy_grass_nor_gl_4k.jpg
+          test -s godot/assets/textures/leafy_grass_rough_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_diff_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_nor_gl_4k.jpg
+          test -s godot/assets/textures/brown_mud_03_rough_4k.jpg
 
       - name: Download licensed animal recordings
         shell: bash
@@ -90,7 +98,9 @@ jobs:
           test -n "$HIPPO_PREVIEW"
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' "$HIPPO_PREVIEW" \
             -o godot/assets/audio/hippo_grunts.mp3
+          test -s godot/assets/audio/pig_grunt.ogg
           test -s godot/assets/audio/dog_bark.ogg
+          test -s godot/assets/audio/hippo_grunts.mp3
 
       - name: Set up Godot 4.7.2
         uses: chickensoft-games/setup-godot@v2.4.1
@@ -109,6 +119,14 @@ jobs:
           timeout 20s godot --headless --path . --quit-after 5 2>&1 | tee /tmp/godot-smoke.log
           ! grep -q 'SCRIPT ERROR' /tmp/godot-smoke.log
           ! grep -q 'Failed loading resource' /tmp/godot-smoke.log
+
+      - name: Run personal release self-test
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --path . --script res://scripts/release_self_test.gd 2>&1 | tee /tmp/hippo-self-test.log
+          grep -q 'SELF-TEST PASS' /tmp/hippo-self-test.log
+          ! grep -q 'SELF-TEST FAIL' /tmp/hippo-self-test.log
 
       - name: Set up Flutter 3.44.7
         uses: subosito/flutter-action@v2
@@ -146,6 +164,8 @@ jobs:
           test -f "$ASSET_DIR/project.godot"
           test -d "$ASSET_DIR/.godot"
           test -s "$ASSET_DIR/assets/models/mochi_pygmy_hippo.glb"
+          test -s "$ASSET_DIR/assets/textures/leafy_grass_diff_4k.jpg"
+          test -s "$ASSET_DIR/assets/textures/brown_mud_03_diff_4k.jpg"
 
       - name: Resolve Flutter dependencies
         working-directory: flutter_app
@@ -193,7 +213,7 @@ jobs:
       - name: Upload phone preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Phone-Preview-ARM64
+          name: HippoOS-Living-Preview-ARM64
           path: flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7
