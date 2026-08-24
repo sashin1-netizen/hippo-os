@@ -53,6 +53,17 @@ func _configure_viewport() -> void:
     var viewport := get_viewport()
     if viewport == null:
         return
+
+    # GitHub's Android x86_64 emulator uses a software/virtual GPU. Running 4x MSAA
+    # there can lose the Vulkan present device even though real ARM64 phones render it
+    # correctly. Keep FXAA in that environment and reserve 4x MSAA for physical-class
+    # ARM devices. This is a runtime capability fallback, not a downgrade of 4K art.
+    var architecture := Engine.get_architecture_name().to_lower()
+    if "x86" in architecture:
+        viewport.msaa_3d = Viewport.MSAA_DISABLED
+        viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+        return
+
     viewport.msaa_3d = Viewport.MSAA_4X
     viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 
