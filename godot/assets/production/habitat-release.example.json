@@ -1,0 +1,6 @@
+{
+  "ground": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
+  "water": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
+  "rocks": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
+  "vegetation": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"}
+}
