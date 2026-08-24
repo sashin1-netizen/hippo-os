@@ -9,6 +9,12 @@ var interaction_hint := ""
 func _open_world_controller():
     return get_node_or_null("OpenWorldController")
 
+func _update_camera(delta):
+    var controller = _open_world_controller()
+    if controller != null and controller.is_free_roam():
+        return
+    super(delta)
+
 func flutter_action(action_name):
     var action = str(action_name)
 
