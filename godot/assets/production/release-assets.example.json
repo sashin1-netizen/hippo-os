@@ -10,6 +10,7 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     },
@@ -23,6 +24,7 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     },
@@ -36,6 +38,7 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     }
