@@ -39,27 +39,34 @@ uniform float roughness_base = 0.62;
 uniform float moisture = 0.15;
 uniform float pore_scale = 18.0;
 uniform float wrinkle_strength = 0.05;
+uniform float fold_displacement = 0.001;
 varying vec3 local_pos;
 float hash31(vec3 p) {
     p = fract(p * 0.1031);
     p += dot(p, p.yzx + 33.33);
     return fract((p.x + p.y) * p.z);
 }
+float fold_pattern(vec3 p) {
+    float primary = sin(p.y * 31.0 + sin(p.z * 13.0) * 1.6 + p.x * 4.0);
+    float secondary = sin(p.y * 18.0 - p.x * 10.0 + p.z * 3.2) * 0.35;
+    return smoothstep(0.58, 0.98, (primary + secondary) * 0.5 + 0.5);
+}
 void vertex() {
+    float fold = fold_pattern(VERTEX) * wrinkle_strength;
+    VERTEX += NORMAL * fold * fold_displacement;
     local_pos = VERTEX;
 }
 void fragment() {
     float fine = hash31(floor(local_pos * pore_scale * 7.0));
     float broad = hash31(floor(local_pos * pore_scale));
     float pores = mix(broad, fine, 0.42) - 0.5;
-    float fold_wave = sin(local_pos.y * 31.0 + sin(local_pos.z * 13.0) * 1.6 + local_pos.x * 4.0);
-    float folds = smoothstep(0.63, 0.98, fold_wave * 0.5 + 0.5) * wrinkle_strength;
+    float folds = fold_pattern(local_pos) * wrinkle_strength;
     vec3 shaded = base_color.rgb * (0.965 + pores * 0.075);
-    shaded *= 1.0 - folds * 0.16;
+    shaded *= 1.0 - folds * 0.18;
     float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
     shaded += vec3(0.018, 0.014, 0.012) * fresnel * moisture;
     ALBEDO = clamp(shaded, vec3(0.0), vec3(1.0));
-    ROUGHNESS = clamp(roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.08, 0.18, 0.96);
+    ROUGHNESS = clamp(roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.10, 0.18, 0.96);
     SPECULAR = clamp(0.30 + moisture * 0.28 + fresnel * 0.12, 0.2, 0.75);
 }
 """
@@ -116,6 +123,7 @@ func _apply_mesh_materials(mesh_instance, species):
         material.set_shader_parameter("moisture", _species_moisture(species, surface_name))
         material.set_shader_parameter("pore_scale", _species_pore_scale(species))
         material.set_shader_parameter("wrinkle_strength", _species_wrinkles(species, surface_name))
+        material.set_shader_parameter("fold_displacement", _species_fold_displacement(species, surface_name))
         mesh_instance.set_surface_override_material(surface_index, material)
 
 func _eye_material(source):
@@ -124,8 +132,10 @@ func _eye_material(source):
     if source is StandardMaterial3D:
         source_color = source.albedo_color
     material.albedo_color = source_color.darkened(0.30)
-    material.roughness = 0.035
+    material.roughness = 0.028
     material.metallic = 0.0
+    material.clearcoat_enabled = true
+    material.clearcoat_roughness = 0.06
     return material
 
 func _nose_material(source, species):
@@ -134,8 +144,10 @@ func _nose_material(source, species):
     if source is StandardMaterial3D:
         source_color = source.albedo_color
     material.albedo_color = source_color
-    material.roughness = 0.12 if species != "shar_pei" else 0.16
+    material.roughness = 0.10 if species != "shar_pei" else 0.14
     material.metallic = 0.0
+    material.clearcoat_enabled = true
+    material.clearcoat_roughness = 0.18
     return material
 
 func _species_moisture(species, surface_name):
@@ -157,13 +169,24 @@ func _species_pore_scale(species):
 func _species_wrinkles(species, surface_name):
     if species == "shar_pei":
         if "head" in surface_name or "neck" in surface_name:
-            return 0.48
+            return 0.62
         if "body" in surface_name:
-            return 0.31
-        return 0.22
+            return 0.42
+        return 0.28
     if species == "pygmy_hippo":
-        return 0.06
-    return 0.035
+        return 0.07
+    return 0.04
+
+func _species_fold_displacement(species, surface_name):
+    if species == "shar_pei":
+        if "head" in surface_name or "neck" in surface_name:
+            return 0.022
+        if "body" in surface_name:
+            return 0.014
+        return 0.006
+    if species == "pygmy_hippo":
+        return 0.004
+    return 0.0025
 
 func _breath_speed(species):
     if species == "pygmy_hippo":
