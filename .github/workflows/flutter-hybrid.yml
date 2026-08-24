@@ -129,6 +129,31 @@ jobs:
           grep -q 'SELF-TEST PASS' /tmp/hippo-self-test.log
           ! grep -q 'SELF-TEST FAIL' /tmp/hippo-self-test.log
 
+      - name: Install software renderer for visual QA
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+
+      - name: Capture sanctuary visual QA frame
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p artifacts
+          xvfb-run -a -s '-screen 0 1920x1080x24' \
+            godot --path . --display-driver x11 --resolution 1920x1080 \
+            --script res://scripts/release_capture.gd 2>&1 | tee /tmp/hippo-visual-qa.log
+          grep -q 'VISUAL QA CAPTURE PASS' /tmp/hippo-visual-qa.log
+          test -s artifacts/sanctuary-cinematic-1080p.png
+
+      - name: Upload visual QA frame
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Visual-QA
+          path: godot/artifacts/sanctuary-cinematic-1080p.png
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Set up Flutter 3.44.7
         uses: subosito/flutter-action@v2
         with:
@@ -161,7 +186,7 @@ jobs:
           rm -rf "$ASSET_DIR"
           mkdir -p "$ASSET_DIR"
           cp -a godot/. "$ASSET_DIR/"
-          rm -rf "$ASSET_DIR/android" "$ASSET_DIR/.git"
+          rm -rf "$ASSET_DIR/android" "$ASSET_DIR/.git" "$ASSET_DIR/artifacts"
           test -f "$ASSET_DIR/project.godot"
           test -d "$ASSET_DIR/.godot"
           test -s "$ASSET_DIR/assets/models/mochi_pygmy_hippo.glb"
