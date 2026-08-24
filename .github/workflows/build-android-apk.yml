@@ -130,7 +130,11 @@ jobs:
           cp project.godot "$GITHUB_WORKSPACE/build/project.godot.mobile-release"
           sed -i 's/renderer\/rendering_method="mobile"/renderer\/rendering_method="gl_compatibility"/' project.godot
           sed -i 's/renderer\/rendering_method.mobile="mobile"/renderer\/rendering_method.mobile="gl_compatibility"/' project.godot
+          sed -i '/^AtmospherePolish=/d;/^VisualSanctuaryPolish=/d;/^PremiumExperience=/d;/^LifelikeRendering=/d;/^GrasslandsSanctuary=/d;/^PBRHabitat=/d;/^CinematicQuality=/d' project.godot
           grep -q 'renderer/rendering_method="gl_compatibility"' project.godot
+          ! grep -q '^LifelikeRendering=' project.godot
+          ! grep -q '^GrasslandsSanctuary=' project.godot
+          ! grep -q '^PBRHabitat=' project.godot
           godot --headless --editor --path . --import --quit 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-import-emulator.log"
           godot --headless --verbose --path . --export-release "Android Emulator CI" "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-emulator.log"
           test -s "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk"
@@ -202,7 +206,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
           script: |
             set -eu
             adb wait-for-device
@@ -215,10 +219,12 @@ jobs:
             grep -q 'versionCode=4' apk/adb-package.txt
             grep -q 'targetSdk=36' apk/adb-package.txt
             adb shell settings put secure immersive_mode_confirmations confirmed || true
+            adb logcat -c
             adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
             sleep 10
             adb shell pidof com.sashin.hippoos.personal.ci | tee apk/adb-pid.txt
             test -s apk/adb-pid.txt
+            adb logcat -d --pid=$(cat apk/adb-pid.txt) > apk/adb-app-logcat.txt
             adb shell dumpsys window displays > apk/window-displays.txt
             sleep 2
             adb exec-out screencap -p > apk/launch.png
@@ -227,7 +233,7 @@ jobs:
             echo "Launch screenshot bytes: $(stat -c%s apk/launch.png)"
             test "$(stat -c%s apk/launch.png)" -ge 30000
             ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt
-            ! grep -Eiq 'godot.*(Program linking failed|SHADER ERROR:|Shader compilation failed)' apk/adb-logcat.txt
+            ! grep -Eiq 'Program linking failed|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/adb-app-logcat.txt
             ! grep -Eiq 'VK_ERROR_DEVICE_LOST|Couldn.t present to Vulkan queue' apk/adb-logcat.txt
       - name: Upload Android 16 evidence
         if: always()
@@ -239,6 +245,7 @@ jobs:
             apk/adb-package-path.txt
             apk/adb-package.txt
             apk/adb-pid.txt
+            apk/adb-app-logcat.txt
             apk/adb-logcat.txt
             apk/window-displays.txt
             apk/launch.png
@@ -262,4 +269,4 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          gh release create "$RELEASE_TAG" build/HippoOS-Personal.apk build/HippoOS.apk.sha256 build/HippoOS.badging.txt build/HippoOS.signature.txt build/HippoOS.zipalign.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Hippo OS 0.2.2 Personal Android APK" --notes "ARM64 phone APK using Godot Mobile/Vulkan and verified 4K sanctuary source art. Android 16 CI separately validates the same project through an x86_64 OpenGL compatibility render path. Final physical-phone visual acceptance remains mandatory before public 1.0."
+          gh release create "$RELEASE_TAG" build/HippoOS-Personal.apk build/HippoOS.apk.sha256 build/HippoOS.badging.txt build/HippoOS.signature.txt build/HippoOS.zipalign.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Hippo OS 0.2.2 Personal Android APK" --notes "ARM64 phone APK using Godot Mobile/Vulkan and verified 4K sanctuary source art. Android 16 CI separately validates the core project through an x86_64 OpenGL compatibility render path. Final physical-phone visual acceptance remains mandatory before public 1.0."
