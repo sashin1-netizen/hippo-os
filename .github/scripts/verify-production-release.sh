@@ -34,6 +34,7 @@ required_species = {
     'dog': ('bao.glb', 85000),
 }
 required_clips = {'idle','walk','run','turn','sleep','wake','eat','drink','play','pet','call'}
+MIN_SOURCE_TEXTURE_PX = 4096
 
 models = assets.get('models', {})
 for species, (filename, max_triangles) in required_species.items():
@@ -54,6 +55,12 @@ for species, (filename, max_triangles) in required_species.items():
         raise SystemExit(f'Production release blocked: {species} triangle count {tri} exceeds mobile budget {max_triangles}')
     if item.get('rigged') is not True:
         raise SystemExit(f'Production release blocked: {species} is not marked rigged')
+    source_px = int(item.get('texture_source_px', 0))
+    if source_px < MIN_SOURCE_TEXTURE_PX:
+        raise SystemExit(
+            f'Production release blocked: {species} texture_source_px={source_px}; '
+            f'{MIN_SOURCE_TEXTURE_PX}px genuine PBR source art is required'
+        )
     clips = {str(x).lower() for x in item.get('animations', [])}
     missing = sorted(required_clips - clips)
     if missing:
@@ -69,6 +76,12 @@ for field in ('ground','water','rocks','vegetation'):
     for meta in ('source','license'):
         if not str(item.get(meta, '')).strip():
             raise SystemExit(f'Production release blocked: habitat {field}.{meta} empty')
+    source_px = int(item.get('texture_source_px', 0))
+    if source_px < MIN_SOURCE_TEXTURE_PX:
+        raise SystemExit(
+            f'Production release blocked: habitat {field}.texture_source_px={source_px}; '
+            f'{MIN_SOURCE_TEXTURE_PX}px source art is required for the 4K production master'
+        )
 
 required_device_checks = [
     'installs_on_target_phone','launches_from_home_screen','device_check_passes',
@@ -102,7 +115,7 @@ reviewed_at = str(acceptance.get('visual_acceptance_reviewed_at', '')).strip()
 if not reviewer or not reviewed_at:
     raise SystemExit('Production release blocked: final visual acceptance reviewer and review timestamp are required')
 
-print('Production release asset + device + Grasslands visual acceptance gate passed.')
+print('Production release asset + 4K source-art + device + Grasslands visual acceptance gate passed.')
 PY
 
 for model in mochi porky bao; do
