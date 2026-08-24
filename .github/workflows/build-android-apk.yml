@@ -254,10 +254,7 @@ jobs:
             adb shell pidof com.sashin.hippoos.personal | tee apk/adb-pid.txt
             test -s apk/adb-pid.txt
             adb logcat -d -t 300 > apk/adb-logcat.txt
-            if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt; then
-              cat apk/adb-logcat.txt >&2
-              exit 1
-            fi
+            ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal.*has died|Unable to instantiate application' apk/adb-logcat.txt
 
       - name: Upload Android 16 install evidence
         if: always()
