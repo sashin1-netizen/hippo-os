@@ -27,8 +27,14 @@ void main() {
 
   test('personal build manifest exposes only required device capability', () {
     final manifest = read('native_overrides/AndroidManifest.xml');
+    final launcher = read('android/app/src/main/res/drawable/hippo_launcher.xml');
 
     expect(manifest, contains('android.permission.VIBRATE'));
+    expect(manifest, contains('android:icon="@drawable/hippo_launcher"'));
+    expect(manifest, contains('android:roundIcon="@drawable/hippo_launcher"'));
+    expect(launcher, contains('<vector'));
+    expect(launcher, contains('#163128'));
+
     for (final forbidden in <String>[
       'android.permission.INTERNET',
       'android.permission.ACCESS_NETWORK_STATE',
