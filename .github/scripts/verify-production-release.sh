@@ -11,6 +11,7 @@ required_files=(
   "$GODOT/assets/production/release-assets.json"
   "$GODOT/assets/production/habitat-release.json"
   "$GODOT/assets/production/device-acceptance.json"
+  "$ROOT/Docs/VISUAL_ACCEPTANCE.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -74,13 +75,34 @@ required_device_checks = [
     'speaker_audio_passes','bluetooth_audio_passes','save_restart_passes',
     'background_resume_passes','offline_progression_passes','safe_area_passes',
     'vfx_passes','ui_visual_acceptance_passes','performance_passes',
-    'production_visual_acceptance_passes'
+    'production_visual_acceptance_passes','no_blank_or_black_render_passes',
+    'no_runtime_shader_errors_passes','reference_layout_match_passes',
+    'reference_interaction_match_passes','all_exposed_controls_functional_passes',
+    'no_placeholder_geometry_passes','animal_realism_approved',
+    'habitat_realism_approved','camera_framing_approved','ui_finish_approved'
 ]
 for key in required_device_checks:
     if acceptance.get(key) is not True:
         raise SystemExit(f'Production release blocked: device acceptance {key}=true is required')
 
-print('Production release asset + device gate passed.')
+if acceptance.get('visual_reference_id') != 'grasslands-sanctuary-v1':
+    raise SystemExit('Production release blocked: visual_reference_id must be grasslands-sanctuary-v1')
+
+screens = acceptance.get('accepted_phone_screenshots', [])
+required_screens = {
+    'mochi_hero','porky_selected','bao_selected','main_hud','journal',
+    'camera_bodycam','map','sanctuary_customize'
+}
+if not isinstance(screens, list) or not required_screens.issubset({str(x) for x in screens}):
+    missing = sorted(required_screens - {str(x) for x in screens}) if isinstance(screens, list) else sorted(required_screens)
+    raise SystemExit(f'Production release blocked: missing accepted real-phone screenshot evidence: {missing}')
+
+reviewer = str(acceptance.get('visual_acceptance_reviewer', '')).strip()
+reviewed_at = str(acceptance.get('visual_acceptance_reviewed_at', '')).strip()
+if not reviewer or not reviewed_at:
+    raise SystemExit('Production release blocked: final visual acceptance reviewer and review timestamp are required')
+
+print('Production release asset + device + Grasslands visual acceptance gate passed.')
 PY
 
 for model in mochi porky bao; do
