@@ -1,8 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hippo_os/camera_mode.dart';
 import 'package:hippo_os/customization_state.dart';
+import 'package:hippo_os/production_app.dart';
 
 void main() {
+  test('production shell is the release application surface', () {
+    expect(const HippoOsProductionApp(), isNotNull);
+  });
+
   test('launch camera contract includes bodycam', () {
     expect(SanctuaryCameraMode.values, contains(SanctuaryCameraMode.bodycam));
     expect(SanctuaryCameraMode.bodycam.engineValue, 'bodycam');
