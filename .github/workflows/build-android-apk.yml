@@ -120,18 +120,31 @@ jobs:
           test -f project.godot
           test -f main.tscn
           test -f export_presets.cfg
+          test -f scripts/save_migrator.gd
+          test -f scripts/personal_use_polish.gd
           test -s assets/audio/forest_ambience.ogg
           test -s assets/audio/water_stream.ogg
           test -s assets/audio/birds_garden.ogg
+          test -s assets/branding/hippo_icon.svg
+          test -s assets/branding/hippo_icon_foreground.svg
+          test -s assets/branding/hippo_icon_background.svg
+          test -s assets/branding/hippo_icon_monochrome.svg
+          grep -q 'SaveMigrator="\*res://scripts/save_migrator.gd"' project.godot
           grep -q 'AudioDirector="\*res://scripts/audio_director.gd"' project.godot
+          grep -q 'PersonalUsePolish="\*res://scripts/personal_use_polish.gd"' project.godot
+          grep -q 'stretch/aspect="expand"' project.godot
+          grep -q 'config/version="0.2.0-personal"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
           grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
           ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
           ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -q 'architectures/arm64-v8a=true' export_presets.cfg
+          grep -q 'screen/immersive_mode=true' export_presets.cfg
+          grep -q 'screen/edge_to_edge=true' export_presets.cfg
+          grep -q 'launcher_icons/adaptive_monochrome_432x432=' export_presets.cfg
           godot --headless --editor --path . --import --quit
-          godot --headless --path . --quit-after 2
+          godot --headless --path . --quit-after 3
 
       - name: Export debug APK
         shell: bash
@@ -151,6 +164,7 @@ jobs:
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "package: name='com.sashin.hippoos'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           grep -q "targetSdkVersion:'36'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
+          grep -q "versionCode='2'" "$GITHUB_WORKSPACE/build/HippoOS.badging.txt"
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.signature.txt"
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/build/HippoOS.apk.sha256"
 
@@ -182,4 +196,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS Android APK · Build ${{ github.run_number }}" \
-            --notes "Verified ARM64 Android debug APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. Includes checksum-verified sanctuary ambience and the Hippo OS immersive spatial mix. The APK was signature-checked and its SHA-256 is attached."
+            --notes "Verified ARM64 personal-use Android APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. Includes immersive spatial audio, adaptive pygmy-hippo bioacoustics, responsive safe-area UI, save migration, startup/About privacy UX and Android launcher identity. The APK was signature-checked and its SHA-256 is attached."
