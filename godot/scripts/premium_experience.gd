@@ -313,14 +313,14 @@ func _update_selected_focus(delta: float) -> void:
         return
 
     var species := str(roster.get("selected_species"))
-    var companions_variant := roster.get("companions")
+    var companions_variant: Variant = roster.get("companions")
     if typeof(companions_variant) != TYPE_DICTIONARY:
         return
     var companions: Dictionary = companions_variant
     if not companions.has(species):
         return
 
-    var data_variant := companions.get(species)
+    var data_variant: Variant = companions.get(species)
     if typeof(data_variant) != TYPE_DICTIONARY:
         return
     var data: Dictionary = data_variant
