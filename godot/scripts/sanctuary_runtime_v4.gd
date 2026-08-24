@@ -1,6 +1,7 @@
 extends "res://scripts/sanctuary_v3.gd"
 
 const CAMERA_MODES = ["cinematic", "caretaker", "bodycam", "overhead"]
+const FLUTTER_BRIDGE_NAME = "HippoFlutterBridge"
 
 var camera_mode = "cinematic"
 var bodycam_phase = 0.0
@@ -9,6 +10,8 @@ var device_local_hour = -1
 var device_local_minute = 0
 var device_utc_offset_minutes = 0
 var last_device_clock_sync_ms = 0
+var flutter_bridge = null
+var flutter_status_timer = null
 
 func set_camera_mode(value):
     var requested = str(value).to_lower()
@@ -17,6 +20,7 @@ func set_camera_mode(value):
     camera_mode = requested
     sanctuary.settings["camera_mode"] = camera_mode
     _reset_camera()
+    _push_flutter_status()
     return true
 
 func sync_device_time(payload):
@@ -30,6 +34,7 @@ func sync_device_time(payload):
     sanctuary.settings["device_timezone"] = device_timezone
     sanctuary.settings["device_utc_offset_minutes"] = device_utc_offset_minutes
     sanctuary.settings["time_mode"] = "automatic"
+    _push_flutter_status()
     return true
 
 func flutter_action(action_name):
@@ -44,18 +49,24 @@ func flutter_action(action_name):
             _toggle_settings()
         _:
             return false
+    _push_flutter_status()
     return true
 
 func get_flutter_status():
     var actor = _selected_actor()
-    if actor == null:
+    if actor == null or actor.state == null:
         return {}
+    var needs = actor.state.needs
     return {
         "animal_name": actor.display_name(),
         "species_name": actor.species_display_name(),
         "status": actor.status_line(),
         "camera_mode": camera_mode,
-        "iana_zone": device_timezone
+        "iana_zone": device_timezone,
+        "bond": float(actor.state.bond),
+        "hunger": float(needs.get("hunger", 0.0)),
+        "energy": float(needs.get("energy", 0.0)),
+        "security": float(actor.state.emotion.get("security", 0.0))
     }
 
 func _ready():
@@ -64,6 +75,39 @@ func _ready():
     if camera_mode not in CAMERA_MODES:
         camera_mode = "cinematic"
     device_timezone = str(sanctuary.settings.get("device_timezone", "Local"))
+    _setup_flutter_bridge()
+
+func _setup_flutter_bridge():
+    if not Engine.has_singleton(FLUTTER_BRIDGE_NAME):
+        return
+    flutter_bridge = Engine.get_singleton(FLUTTER_BRIDGE_NAME)
+    if flutter_bridge.has_signal("camera_mode_requested"):
+        flutter_bridge.camera_mode_requested.connect(set_camera_mode)
+    if flutter_bridge.has_signal("device_time_synced"):
+        flutter_bridge.device_time_synced.connect(_on_flutter_time_json)
+    if flutter_bridge.has_signal("animal_action_requested"):
+        flutter_bridge.animal_action_requested.connect(flutter_action)
+
+    flutter_status_timer = Timer.new()
+    flutter_status_timer.wait_time = 0.5
+    flutter_status_timer.one_shot = false
+    flutter_status_timer.autostart = true
+    flutter_status_timer.timeout.connect(_push_flutter_status)
+    add_child(flutter_status_timer)
+    call_deferred("_push_flutter_status")
+
+func _on_flutter_time_json(payload_json):
+    var payload = JSON.parse_string(str(payload_json))
+    if typeof(payload) == TYPE_DICTIONARY:
+        sync_device_time(payload)
+
+func _push_flutter_status():
+    if flutter_bridge == null:
+        return
+    var payload = get_flutter_status()
+    if payload.is_empty():
+        return
+    flutter_bridge.pushStatus(JSON.stringify(payload))
 
 func _update_camera(delta):
     var actor = _selected_actor()
