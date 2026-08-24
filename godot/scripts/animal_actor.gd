@@ -65,6 +65,8 @@ func setup(new_id, new_species_id, new_name, new_home, new_zone_radius, saved_st
     brain = AnimalBrain.new(species_id, profile, state.temperament)
     position = home_center
     set_meta("animal_id", animal_id)
+    set_meta("owner_near", false)
+    set_meta("owner_distance", 999.0)
     collision_layer = 2
     collision_mask = 1
     _build_collision()
@@ -183,8 +185,9 @@ func _choose_next_action():
     if state == null or brain == null:
         return
     var hour = int(Time.get_time_dict_from_system().get("hour", 12))
+    var owner_near = bool(get_meta("owner_near", false))
     var context = {
-        "owner_near": selected,
+        "owner_near": owner_near,
         "is_dusk_or_night": hour >= 18 or hour < 6,
         "water_available": species_id == SpeciesProfiles.PYGMY_HIPPO,
         "cover_available": true,
@@ -282,7 +285,8 @@ func _maybe_vocalize():
         return
     var social = float(state.emotion.get("social_motivation", 0.5))
     var arousal = float(state.emotion.get("arousal", 0.4))
-    var chance = 0.12 + arousal * 0.18 + (0.12 if selected else 0.0) + social * 0.06
+    var owner_near = bool(get_meta("owner_near", false))
+    var chance = 0.12 + arousal * 0.18 + (0.12 if owner_near else 0.0) + social * 0.06
     if randf() > chance:
         return
     vocal_player.pitch_scale = randf_range(0.95, 1.05)
