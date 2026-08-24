@@ -76,11 +76,13 @@ jobs:
           set -euxo pipefail
           mkdir -p ../build
           grep -q '^name="Android Existing App Update"$' export_presets.cfg
-          grep -q 'version/code=101' export_presets.cfg
-          grep -q 'version/name="0.2.3-update"' export_presets.cfg
+          grep -q 'version/code=102' export_presets.cfg
+          grep -q 'version/name="0.2.4-update"' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -Fq 'StartupFailSafe="*res://scripts/startup_fail_safe.gd"' project.godot
+          grep -Fq 'PhoneVisualHotfix="*res://scripts/phone_visual_hotfix.gd"' project.godot
           test -f scripts/startup_fail_safe.gd
+          test -f scripts/phone_visual_hotfix.gd
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import-existing-update.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import-existing-update.log
       - name: Export existing-app update APK
@@ -98,7 +100,7 @@ jobs:
           APK="$GITHUB_WORKSPACE/build/HippoOS-UPDATE-EXISTING.apk"
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS-UPDATE.badging.txt 2> build/HippoOS-UPDATE.badging.stderr.txt || true
           grep -q "package: name='com.sashin.hippoos'" build/HippoOS-UPDATE.badging.txt
-          grep -q "versionCode='101'" build/HippoOS-UPDATE.badging.txt
+          grep -q "versionCode='102'" build/HippoOS-UPDATE.badging.txt
           grep -q "targetSdkVersion:'36'" build/HippoOS-UPDATE.badging.txt
           unzip -l "$APK" | tee build/HippoOS-UPDATE.contents.txt
           grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS-UPDATE.contents.txt
@@ -126,7 +128,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: hippo-os-existing-update-v0.2.3
+          RELEASE_TAG: hippo-os-existing-update-v0.2.4
         run: |
           set -euxo pipefail
           cp build/HippoOS-UPDATE-EXISTING.apk build/HippoOS-UPDATE.apk
@@ -136,7 +138,7 @@ jobs:
             gh release create "$RELEASE_TAG" build/HippoOS-UPDATE.apk \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Hippo OS Existing App Update v0.2.3" \
-              --notes "Verified update APK for the existing com.sashin.hippoos installation. Version code 101. ARM64. Android target API 36. Install over the existing Hippo OS app; do not uninstall it first." \
+              --title "Hippo OS Existing App Update v0.2.4" \
+              --notes "Phone visual hotfix for the existing com.sashin.hippoos installation. Version code 102. Fixes sanctuary night readability and removes legacy HUD layers that overlap the production HUD. ARM64. Android target API 36. Install over the existing Hippo OS app; do not uninstall it first." \
               --prerelease
           fi
