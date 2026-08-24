@@ -6,6 +6,7 @@ func _initialize():
     print("HIPPO OS PERSONAL RELEASE SELF-TEST")
     _check_project_files()
     _check_runtime_modules()
+    _check_open_world_scene_contract()
     _check_production_models()
     _check_production_audio()
     _check_4k_visual_assets()
@@ -19,10 +20,8 @@ func _initialize():
             push_error(str(failure))
         quit(1)
 
-func _check_project_files():
-    var required = [
-        "res://project.godot",
-        "res://sanctuary_v3.tscn",
+func _required_runtime_modules():
+    return [
         "res://scripts/flutter_runtime_overlay.gd",
         "res://scripts/launch_shell.gd",
         "res://scripts/sanctuary_v3.gd",
@@ -37,15 +36,27 @@ func _check_project_files():
         "res://scripts/environment_v2.gd",
         "res://scripts/environment_pbr.gd",
         "res://scripts/environment_sky.gd",
+        "res://scripts/open_world_environment.gd",
+        "res://scripts/open_world_controller.gd",
+        "res://scripts/environment_collision.gd",
+        "res://scripts/relationship_runtime.gd",
         "res://scripts/animal_render_v2.gd",
         "res://scripts/animal_motion_v3.gd",
-        "res://scripts/ambient_life.gd",
+        "res://scripts/animal_surface_effects.gd",
+        "res://scripts/ambient_life.gd"
+    ]
+
+func _check_project_files():
+    var required = [
+        "res://project.godot",
+        "res://sanctuary_v3.tscn",
         "res://assets/models/mochi_pygmy_hippo.glb",
         "res://assets/models/truffle_pig.glb",
         "res://assets/models/bao_shar_pei.glb",
         "res://assets/icon.svg",
         "res://export_presets.cfg"
     ]
+    required.append_array(_required_runtime_modules())
     for path in required:
         if not FileAccess.file_exists(path):
             failures.append("Missing required file: " + path)
@@ -54,37 +65,42 @@ func _check_project_files():
         var packed = load("res://sanctuary_v3.tscn")
         if packed == null:
             failures.append("sanctuary_v3.tscn failed to load")
+        elif not packed is PackedScene:
+            failures.append("sanctuary_v3.tscn is not a PackedScene")
         else:
             var instance = packed.instantiate()
             if instance == null:
                 failures.append("sanctuary_v3.tscn failed to instantiate")
             else:
-                instance.queue_free()
+                instance.free()
 
 func _check_runtime_modules():
-    var scripts = [
-        "res://scripts/flutter_runtime_overlay.gd",
-        "res://scripts/launch_shell.gd",
-        "res://scripts/sanctuary_v3.gd",
-        "res://scripts/sanctuary_runtime_v4.gd",
-        "res://scripts/animal_actor.gd",
-        "res://scripts/animal_brain.gd",
-        "res://scripts/animal_state.gd",
-        "res://scripts/species_profiles.gd",
-        "res://scripts/sanctuary_state.gd",
-        "res://scripts/animal_relationships.gd",
-        "res://scripts/living_world.gd",
-        "res://scripts/environment_v2.gd",
-        "res://scripts/environment_pbr.gd",
-        "res://scripts/environment_sky.gd",
-        "res://scripts/animal_render_v2.gd",
-        "res://scripts/animal_motion_v3.gd",
-        "res://scripts/ambient_life.gd"
-    ]
-    for script_path in scripts:
+    for script_path in _required_runtime_modules():
         var script_resource = load(script_path)
         if script_resource == null:
             failures.append("Runtime module failed to load: " + script_path)
+
+func _check_open_world_scene_contract():
+    if not FileAccess.file_exists("res://sanctuary_v3.tscn"):
+        return
+    var text_file = FileAccess.open("res://sanctuary_v3.tscn", FileAccess.READ)
+    if text_file == null:
+        failures.append("Unable to read sanctuary scene for open-world contract")
+        return
+    var scene_text = text_file.get_as_text()
+    text_file.close()
+    var required_nodes = [
+        "OpenWorldEnvironment",
+        "OpenWorldController",
+        "EnvironmentCollision",
+        "RelationshipRuntime",
+        "AnimalSurfaceEffects",
+        "AmbientLife",
+        "EnvironmentSky"
+    ]
+    for node_name in required_nodes:
+        if not ("name=\"%s\"" % node_name) in scene_text:
+            failures.append("Open-world scene node missing: " + node_name)
 
 func _check_production_models():
     var models = {
