@@ -2,6 +2,7 @@
 import math
 import random
 import struct
+import subprocess
 import time
 import urllib.request
 import wave
@@ -155,3 +156,8 @@ download_visual_asset(
     "brown_mud_03_rough_4k.jpg",
     "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_rough_4k.jpg",
 )
+
+# Recompile the same original animal specs at a denser production mesh resolution and
+# add species-specific micro-animation clips. The strict anyCreature compiler remains
+# the validator; a failed refined mesh fails the build instead of silently falling back.
+subprocess.run(["python3", "Tools/refine_creatures.py"], check=True)
