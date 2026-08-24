@@ -34,7 +34,7 @@ func _build_skin_shader():
     skin_shader.code = """
 shader_type spatial;
 render_mode cull_back, diffuse_burley, specular_schlick_ggx;
-uniform vec4 base_color : source_color = vec4(0.5, 0.4, 0.4, 1.0);
+uniform vec4 base_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float roughness_base = 0.62;
 uniform float moisture = 0.15;
 uniform float mud_amount = 0.0;
@@ -62,16 +62,28 @@ void fragment() {
     float broad = hash31(floor(local_pos * pore_scale));
     float pores = mix(broad, fine, 0.42) - 0.5;
     float folds = fold_pattern(local_pos) * wrinkle_strength;
-    vec3 shaded = base_color.rgb * (0.965 + pores * 0.075);
-    shaded *= 1.0 - folds * 0.18;
+
+    // anyCreature stores the authored palette, vertical shading grain and baked AO
+    // in COLOR_0. Godot exposes that as COLOR in spatial shaders. Preserve it here
+    // instead of flattening every creature back to the material's white base factor.
+    vec3 vertex_skin = clamp(COLOR.rgb, vec3(0.015), vec3(1.0));
+    vec3 shaded = base_color.rgb * vertex_skin * (0.985 + pores * 0.055);
+    shaded *= 1.0 - folds * 0.15;
+
     float fresnel = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
     shaded += vec3(0.018, 0.014, 0.012) * fresnel * moisture;
+
     float lower_body = 1.0 - smoothstep(-0.10, 0.72, local_pos.y);
     float mud_noise = 0.72 + hash31(floor(local_pos * 13.0)) * 0.28;
     float mud_mask = clamp(mud_amount * lower_body * mud_noise, 0.0, 0.92);
     shaded = mix(shaded, vec3(0.115, 0.066, 0.031), mud_mask * 0.82);
+
     ALBEDO = clamp(shaded, vec3(0.0), vec3(1.0));
-    ROUGHNESS = clamp(roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.10 + mud_mask * 0.12, 0.18, 0.98);
+    ROUGHNESS = clamp(
+        roughness_base - moisture * 0.20 + pores * 0.09 + folds * 0.10 + mud_mask * 0.12,
+        0.18,
+        0.98
+    );
     SPECULAR = clamp(0.30 + moisture * 0.28 + fresnel * 0.12 - mud_mask * 0.08, 0.18, 0.75);
 }
 """
@@ -123,6 +135,8 @@ func _apply_mesh_materials(mesh_instance, species):
             continue
         var material = ShaderMaterial.new()
         material.shader = skin_shader
+        # Vertex-coloured GLBs use a white baseColorFactor. Retaining source albedo here
+        # also keeps compatibility with any future non-vertex-coloured surfaces.
         material.set_shader_parameter("base_color", source.albedo_color)
         material.set_shader_parameter("roughness_base", clamp(float(source.roughness), 0.28, 0.92))
         material.set_shader_parameter("moisture", _species_moisture(species, surface_name))
@@ -137,7 +151,11 @@ func _eye_material(source):
     var source_color = Color(0.055, 0.038, 0.028)
     if source is StandardMaterial3D:
         source_color = source.albedo_color
-    material.albedo_color = source_color.darkened(0.30)
+    # Imported vertex-coloured eye materials can have a white base factor. Use a
+    # species-neutral deep living-eye value and let real lighting create highlights.
+    if source_color.r > 0.85 and source_color.g > 0.85 and source_color.b > 0.85:
+        source_color = Color(0.045, 0.031, 0.025)
+    material.albedo_color = source_color.darkened(0.18)
     material.roughness = 0.028
     material.metallic = 0.0
     material.clearcoat_enabled = true
@@ -149,6 +167,13 @@ func _nose_material(source, species):
     var source_color = Color(0.10, 0.075, 0.065)
     if source is StandardMaterial3D:
         source_color = source.albedo_color
+    if source_color.r > 0.85 and source_color.g > 0.85 and source_color.b > 0.85:
+        if species == "pygmy_hippo":
+            source_color = Color(0.085, 0.052, 0.064)
+        elif species == "pig":
+            source_color = Color(0.34, 0.16, 0.17)
+        else:
+            source_color = Color(0.045, 0.036, 0.030)
     material.albedo_color = source_color
     material.roughness = 0.10 if species != "shar_pei" else 0.14
     material.metallic = 0.0
