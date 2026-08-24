@@ -2,12 +2,16 @@
 import math
 import random
 import struct
+import time
+import urllib.request
 import wave
 from pathlib import Path
 
 RATE = 22050
 OUT = Path("godot/assets/audio")
 OUT.mkdir(parents=True, exist_ok=True)
+TEXTURE_OUT = Path("godot/assets/textures")
+TEXTURE_OUT.mkdir(parents=True, exist_ok=True)
 random.seed(7321)
 
 
@@ -88,6 +92,33 @@ def ambience(t, i, n):
     return wind + water + insects
 
 
+def download_visual_asset(name, url):
+    target = TEXTURE_OUT / name
+    if target.exists() and target.stat().st_size > 100_000:
+        print(target, target.stat().st_size, "cached")
+        return
+    request = urllib.request.Request(url, headers={"User-Agent": "HippoOS-build/1.0"})
+    last_error = None
+    for attempt in range(4):
+        try:
+            tmp = target.with_suffix(target.suffix + ".part")
+            with urllib.request.urlopen(request, timeout=90) as response, tmp.open("wb") as output:
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+            if tmp.stat().st_size < 100_000:
+                raise RuntimeError(f"visual asset too small: {name}")
+            tmp.replace(target)
+            print(target, target.stat().st_size)
+            return
+        except Exception as exc:
+            last_error = exc
+            time.sleep(2 + attempt * 2)
+    raise RuntimeError(f"failed to download {name}: {last_error}")
+
+
 write_wav("hippo_step.wav", 0.38, step_wave(58, 0.38, 0.15, 0.72))
 write_wav("pig_step.wav", 0.30, step_wave(78, 0.30, 0.20, 0.54))
 write_wav("dog_step.wav", 0.24, step_wave(105, 0.24, 0.17, 0.42))
@@ -97,3 +128,30 @@ write_wav("eat_crunch.wav", 1.25, crunch)
 write_wav("drink_lap.wav", 1.65, lap)
 write_wav("ui_click.wav", 0.11, click)
 write_wav("sanctuary_ambience.wav", 24.0, ambience)
+
+# CC0 source materials from Poly Haven. 4K JPEG masters keep the source fidelity high
+# while avoiding the extreme APK cost of uncompressed 4K PNG maps.
+download_visual_asset(
+    "leafy_grass_diff_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/leafy_grass/leafy_grass_diff_4k.jpg",
+)
+download_visual_asset(
+    "leafy_grass_nor_gl_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/leafy_grass/leafy_grass_nor_gl_4k.jpg",
+)
+download_visual_asset(
+    "leafy_grass_rough_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/leafy_grass/leafy_grass_rough_4k.jpg",
+)
+download_visual_asset(
+    "brown_mud_03_diff_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_diff_4k.jpg",
+)
+download_visual_asset(
+    "brown_mud_03_nor_gl_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_nor_gl_4k.jpg",
+)
+download_visual_asset(
+    "brown_mud_03_rough_4k.jpg",
+    "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/4k/brown_mud_03/brown_mud_03_rough_4k.jpg",
+)
