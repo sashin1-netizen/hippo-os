@@ -60,6 +60,11 @@ func _bind_when_ready() -> void:
         push_warning("ProductionAssetLoader could not bind to companion bodies")
         return
 
+    # Let fallback anatomy/material polish settle first. A production GLB is then
+    # mounted afterwards so its authored PBR materials are never overwritten.
+    for _frame in range(4):
+        await get_tree().process_frame
+
     for species in MODEL_PATHS.keys():
         _install_if_available(String(species))
 
@@ -224,7 +229,7 @@ func _resolve_clip(player: AnimationPlayer, animation_key: String) -> StringName
     var aliases_value: Variant = ANIMATION_ALIASES.get(animation_key, [])
     if typeof(aliases_value) != TYPE_ARRAY:
         return StringName()
-    for alias_value in aliases_value as Array:
+    for alias_value in (aliases_value as Array):
         var alias_name := StringName(String(alias_value))
         if player.has_animation(alias_name):
             return alias_name
