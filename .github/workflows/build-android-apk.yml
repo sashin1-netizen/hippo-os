@@ -6,11 +6,13 @@ on:
     branches: [main]
     paths:
       - 'godot/**'
+      - '.github/scripts/fetch-audio-assets.sh'
       - '.github/workflows/build-android-apk.yml'
   pull_request:
     branches: [main]
     paths:
       - 'godot/**'
+      - '.github/scripts/fetch-audio-assets.sh'
       - '.github/workflows/build-android-apk.yml'
 
 permissions:
@@ -104,6 +106,12 @@ jobs:
           godot --version
           godot --version | grep -q '^4.7.2'
 
+      - name: Fetch verified sanctuary audio
+        shell: bash
+        run: |
+          set -euxo pipefail
+          bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+
       - name: Validate Godot project
         shell: bash
         working-directory: godot
@@ -112,6 +120,10 @@ jobs:
           test -f project.godot
           test -f main.tscn
           test -f export_presets.cfg
+          test -s assets/audio/forest_ambience.ogg
+          test -s assets/audio/water_stream.ogg
+          test -s assets/audio/birds_garden.ogg
+          grep -q 'AudioDirector="\*res://scripts/audio_director.gd"' project.godot
           grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
           grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
           ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
@@ -170,4 +182,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Hippo OS Android APK · Build ${{ github.run_number }}" \
-            --notes "Verified ARM64 Android debug APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. The APK was signature-checked and its SHA-256 is attached."
+            --notes "Verified ARM64 Android debug APK built from main with Godot 4.7.2. Package: com.sashin.hippoos. Target SDK: Android 16 / API 36. Includes checksum-verified sanctuary ambience and the Hippo OS immersive spatial mix. The APK was signature-checked and its SHA-256 is attached."
