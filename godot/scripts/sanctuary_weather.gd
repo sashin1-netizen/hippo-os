@@ -21,7 +21,7 @@ var scene_root: Node3D
 var hud: Node
 var grasslands: Node
 var world_environment: WorldEnvironment
-var rain: GPUParticles3D
+var rain: CPUParticles3D
 var state: Dictionary = {}
 var update_timer := 0.0
 var bound := false
@@ -197,12 +197,12 @@ func _apply_weather() -> void:
 
     if rain != null:
         rain.emitting = rain_strength > 0.05
-        rain.amount = int(lerpf(100.0, 420.0, rain_strength))
+        rain.amount = int(lerpf(70.0, 190.0, rain_strength))
         var reduced := false
         if typeof(settings_variant) == TYPE_DICTIONARY:
             reduced = bool((settings_variant as Dictionary).get("reduced_motion", false))
         if reduced:
-            rain.amount = maxi(60, int(float(rain.amount) * 0.45))
+            rain.amount = maxi(36, int(float(rain.amount) * 0.45))
 
     _update_hud(condition)
 
@@ -239,24 +239,22 @@ func _build_rain_vfx() -> void:
     if is_instance_valid(old):
         old.queue_free()
 
-    rain = GPUParticles3D.new()
+    rain = CPUParticles3D.new()
     rain.name = "SanctuaryRain"
-    rain.amount = 220
-    rain.lifetime = 1.45
-    rain.randomness = 0.35
+    rain.amount = 130
+    rain.lifetime = 1.35
+    rain.randomness = 0.30
     rain.visibility_aabb = AABB(Vector3(-10.0, -1.0, -8.0), Vector3(20.0, 13.0, 16.0))
     rain.position = Vector3(0.0, 7.5, 0.0)
     rain.emitting = false
-
-    var particles := ParticleProcessMaterial.new()
-    particles.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-    particles.emission_box_extents = Vector3(8.5, 0.35, 6.4)
-    particles.direction = Vector3(0.12, -1.0, 0.04)
-    particles.spread = 5.0
-    particles.initial_velocity_min = 7.0
-    particles.initial_velocity_max = 10.0
-    particles.gravity = Vector3(0.0, -5.0, 0.0)
-    rain.process_material = particles
+    rain.local_coords = false
+    rain.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+    rain.emission_box_extents = Vector3(8.5, 0.35, 6.4)
+    rain.direction = Vector3(0.12, -1.0, 0.04)
+    rain.spread = 5.0
+    rain.initial_velocity_min = 7.0
+    rain.initial_velocity_max = 10.0
+    rain.gravity = Vector3(0.0, -5.0, 0.0)
 
     var drop_mesh := QuadMesh.new()
     drop_mesh.size = Vector2(0.018, 0.34)
@@ -267,7 +265,7 @@ func _build_rain_vfx() -> void:
     drop_material.albedo_color = Color(0.68, 0.80, 0.92, 0.54)
     drop_material.vertex_color_use_as_albedo = true
     drop_mesh.material = drop_material
-    rain.draw_pass_1 = drop_mesh
+    rain.mesh = drop_mesh
     scene_root.add_child(rain)
 
 func get_weather_snapshot() -> Dictionary:
