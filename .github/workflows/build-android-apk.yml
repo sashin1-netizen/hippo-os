@@ -94,7 +94,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
@@ -112,6 +112,7 @@ jobs:
           test -f project.godot
           test -f main.tscn
           test -f export_presets.cfg
+          grep -q 'textures/vram_compression/import_etc2_astc=true' project.godot
           grep -q 'gradle_build/use_gradle_build=false' export_presets.cfg
           ! grep -q 'gradle_build/min_sdk=' export_presets.cfg
           ! grep -q 'gradle_build/target_sdk=' export_presets.cfg
