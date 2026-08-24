@@ -22,6 +22,7 @@ func set_camera_mode(value):
     camera_mode = requested
     sanctuary.settings["camera_mode"] = camera_mode
     _reset_camera()
+    _save_sanctuary()
     _push_flutter_status()
     return true
 
@@ -42,13 +43,35 @@ func sync_device_time(payload):
 func apply_customization(payload):
     if living_world == null or typeof(payload) != TYPE_DICTIONARY:
         return false
-    if not living_world.apply_customization(payload):
+
+    var settings_payload = payload.get("settings", {})
+    if typeof(settings_payload) == TYPE_DICTIONARY:
+        _apply_custom_settings(settings_payload)
+
+    var living_payload = payload.duplicate(true)
+    living_payload.erase("settings")
+    if not living_world.apply_customization(living_payload):
         return false
+
     sanctuary.set_customization(living_world.customization)
     sanctuary.add_journal_event("customization", "sanctuary", "The sanctuary evolved with your latest customisation.", 0.25)
     _save_sanctuary()
     _push_flutter_status()
     return true
+
+func _apply_custom_settings(settings_payload):
+    sanctuary.settings["master_volume"] = clamp(float(settings_payload.get("master_volume", sanctuary.settings.get("master_volume", 1.0))), 0.0, 1.0)
+    sanctuary.settings["animal_volume"] = clamp(float(settings_payload.get("animal_volume", sanctuary.settings.get("animal_volume", 1.0))), 0.0, 1.0)
+    sanctuary.settings["ambience_volume"] = clamp(float(settings_payload.get("ambience_volume", sanctuary.settings.get("ambience_volume", 0.85))), 0.0, 1.0)
+    sanctuary.settings["ui_volume"] = clamp(float(settings_payload.get("ui_volume", sanctuary.settings.get("ui_volume", 0.85))), 0.0, 1.0)
+    sanctuary.settings["haptics"] = bool(settings_payload.get("haptics", sanctuary.settings.get("haptics", true)))
+    sanctuary.settings["show_stats"] = bool(settings_payload.get("show_stats", sanctuary.settings.get("show_stats", true)))
+    sanctuary.settings["reduced_motion"] = bool(settings_payload.get("reduced_motion", sanctuary.settings.get("reduced_motion", false)))
+    sanctuary.settings["camera_sensitivity"] = clamp(float(settings_payload.get("camera_sensitivity", sanctuary.settings.get("camera_sensitivity", 1.0))), 0.40, 2.0)
+    sanctuary.settings["text_scale"] = clamp(float(settings_payload.get("text_scale", sanctuary.settings.get("text_scale", 1.0))), 0.85, 1.35)
+    _apply_settings()
+    if animal_stats_label != null:
+        animal_stats_label.visible = bool(sanctuary.settings.get("show_stats", true))
 
 func flutter_action(action_name):
     match str(action_name):
@@ -89,6 +112,9 @@ func get_flutter_status():
         payload["ground_dampness"] = float(climate.get("ground_dampness", 0.0))
         payload["water_activity"] = float(climate.get("water_activity", 0.0))
         payload["world_age_seconds"] = float(living_world.world_age_seconds)
+        var full_customization = living_world.customization.duplicate(true)
+        full_customization["settings"] = sanctuary.settings.duplicate(true)
+        payload["customization_json"] = JSON.stringify(full_customization)
     return payload
 
 func _ready():
