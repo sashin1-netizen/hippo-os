@@ -130,8 +130,11 @@ jobs:
           cp project.godot "$GITHUB_WORKSPACE/build/project.godot.mobile-release"
           sed -i 's/renderer\/rendering_method="mobile"/renderer\/rendering_method="gl_compatibility"/' project.godot
           sed -i 's/renderer\/rendering_method.mobile="mobile"/renderer\/rendering_method.mobile="gl_compatibility"/' project.godot
+          sed -i '/renderer\/rendering_method.mobile="gl_compatibility"/a limits/opengl/max_lights_per_object=2\nlimits/opengl/max_renderable_lights=8' project.godot
           sed -i '/^AtmospherePolish=/d;/^VisualSanctuaryPolish=/d;/^PremiumExperience=/d;/^LifelikeRendering=/d;/^GrasslandsSanctuary=/d;/^PBRHabitat=/d;/^CinematicQuality=/d' project.godot
           grep -q 'renderer/rendering_method="gl_compatibility"' project.godot
+          grep -q 'limits/opengl/max_lights_per_object=2' project.godot
+          grep -q 'limits/opengl/max_renderable_lights=8' project.godot
           ! grep -q '^LifelikeRendering=' project.godot
           ! grep -q '^GrasslandsSanctuary=' project.godot
           ! grep -q '^PBRHabitat=' project.godot
