@@ -159,24 +159,31 @@ jobs:
         working-directory: flutter_app
         run: flutter test test/sanctuary_contract_test.dart
 
-      - name: Build compact ARM64 preview APK
+      - name: Build phone-sized ARM64 preview APK
         working-directory: flutter_app
-        run: flutter build apk --release --target-platform android-arm64
+        run: flutter build apk --release --split-per-abi --target-platform android-arm64
 
-      - name: Verify compact preview build
+      - name: Verify ARM64 preview build
         run: |
           set -euxo pipefail
-          APK='flutter_app/build/app/outputs/flutter-apk/app-release.apk'
+          APK='flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk'
           test -s "$APK"
           ls -lh "$APK"
-          unzip -l "$APK" | grep 'lib/arm64-v8a/libgodot_android.so'
-          ! unzip -l "$APK" | grep -q 'lib/x86_64/libgodot_android.so'
-          ! unzip -l "$APK" | grep -q 'lib/armeabi-v7a/libgodot_android.so'
+          python3 - <<'PY'
+          import zipfile
+          apk='flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk'
+          with zipfile.ZipFile(apk) as z:
+              names=set(z.namelist())
+          assert 'lib/arm64-v8a/libgodot_android.so' in names
+          assert 'lib/x86_64/libgodot_android.so' not in names
+          assert 'lib/armeabi-v7a/libgodot_android.so' not in names
+          print('ARM64-only APK verified')
+          PY
 
-      - name: Upload compact preview APK
+      - name: Upload phone preview APK
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-Flutter-Preview-ARM64
-          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          name: HippoOS-Phone-Preview-ARM64
+          path: flutter_app/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 7
