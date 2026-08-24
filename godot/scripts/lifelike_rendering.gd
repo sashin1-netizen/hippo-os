@@ -36,7 +36,6 @@ func _bind_when_ready() -> void:
         push_warning("LifelikeRendering could not bind to all companions")
         return
 
-    # Allow later visual autoloads to finish creating their world nodes first.
     await get_tree().process_frame
     await get_tree().process_frame
     _apply_animal_rendering()
@@ -252,8 +251,6 @@ func _apply_sanctuary_rendering() -> void:
     if mud_surface != null:
         mud_surface.material_override = _make_mud_material()
 
-    # Existing generated habitat geometry remains intentionally lightweight, but
-    # enabling shadows on it removes the flat diorama appearance.
     var polish_world := scene_root.find_child("PremiumExperienceWorld", true, false)
     if polish_world != null:
         _enable_mesh_shadows(polish_world)
@@ -325,7 +322,7 @@ func _make_water_material() -> ShaderMaterial:
     var shader := Shader.new()
     shader.code = """
 shader_type spatial;
-render_mode blend_mix, depth_draw_alpha_prepass, cull_disabled, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, depth_prepass_alpha, cull_disabled, diffuse_burley, specular_schlick_ggx;
 float wave(vec2 p, float t) {
     return sin(p.x * 7.0 + t * 1.25) * 0.55 + cos(p.y * 8.5 - t * 0.95) * 0.45;
 }
@@ -388,7 +385,6 @@ void fragment() {
 
 func _tune_lighting() -> void:
     _tune_lights_recursive(scene_root)
-    # Compatibility renderer: use modest MSAA rather than expensive post effects.
     get_viewport().set("msaa_3d", 1)
 
 func _tune_lights_recursive(root: Node) -> void:
