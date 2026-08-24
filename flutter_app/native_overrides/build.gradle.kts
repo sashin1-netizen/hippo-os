@@ -23,6 +23,9 @@ extensions.configure<ApplicationExtension> {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     androidResources {
@@ -31,7 +34,11 @@ extensions.configure<ApplicationExtension> {
 
     buildTypes {
         release {
+            // Preview builds are release-optimized but use the temporary debug key.
+            // Final personal launch switches to the stable private signing key.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
