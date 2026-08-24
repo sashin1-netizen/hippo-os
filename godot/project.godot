@@ -6,6 +6,7 @@ boot_splash/show_image=false
 
 [autoload]
 AudioDirector="*res://scripts/audio_director.gd"
+AudioControls="*res://scripts/audio_controls.gd"
 
 [display]
 
