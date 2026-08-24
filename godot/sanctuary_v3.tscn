@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource path="res://scripts/flutter_runtime_overlay.gd" type="Script" id="1_sanctuary"]
 [ext_resource path="res://scripts/visual_polish.gd" type="Script" id="2_polish"]
@@ -10,6 +10,7 @@
 [ext_resource path="res://scripts/environment_sky.gd" type="Script" id="8_sky"]
 [ext_resource path="res://scripts/open_world_environment.gd" type="Script" id="9_open_world"]
 [ext_resource path="res://scripts/open_world_controller.gd" type="Script" id="10_roam"]
+[ext_resource path="res://scripts/relationship_runtime.gd" type="Script" id="11_relationships"]
 
 [node name="HippoOSSanctuary" type="Node3D"]
 script = ExtResource("1_sanctuary")
@@ -37,6 +38,9 @@ script = ExtResource("7_ambient")
 
 [node name="EnvironmentSky" type="Node" parent="."]
 script = ExtResource("8_sky")
+
+[node name="RelationshipRuntime" type="Node" parent="."]
+script = ExtResource("11_relationships")
 
 [node name="OpenWorldController" type="Node" parent="."]
 script = ExtResource("10_roam")
