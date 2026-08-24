@@ -55,3 +55,6 @@ fetch_and_verify \
 echo "Verified Hippo OS audio assets:"
 ls -lh "$AUDIO_DIR"/*.ogg
 sha1sum "$AUDIO_DIR"/*.ogg
+
+# Habitat maps are also build-time only and are packaged into the offline APK.
+bash "$ROOT/.github/scripts/fetch-habitat-assets.sh" "$ROOT"
