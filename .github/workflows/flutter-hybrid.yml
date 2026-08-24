@@ -67,7 +67,7 @@ jobs:
           test -s godot/assets/audio/water_splash.wav
           test -s godot/assets/audio/mud_squelch.wav
 
-      - name: Download and normalize licensed animal recordings
+      - name: Download licensed animal recordings
         shell: bash
         run: |
           set -euxo pipefail
@@ -78,11 +78,7 @@ jobs:
           curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
             'https://commons.wikimedia.org/wiki/Special:Redirect/file/Dog.ogg' \
             -o godot/assets/audio/dog_natural.ogg
-          curl --fail --location --retry 4 --user-agent 'HippoOS-build/1.0' \
-            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Ladrido%20perro.ogg' \
-            -o /tmp/dog_bark_source.ogg
-          ffmpeg -hide_banner -loglevel error -y -i /tmp/dog_bark_source.ogg \
-            -vn -c:a libvorbis -q:a 5 godot/assets/audio/dog_bark.ogg
+          cp godot/assets/audio/dog_natural.ogg godot/assets/audio/dog_bark.ogg
           HIPPO_PAGE="$(mktemp)"
           curl --fail --location --retry 4 --user-agent 'Mozilla/5.0 HippoOS-build/1.0' \
             'https://freesound.org/people/toadie/sounds/194870/' -o "$HIPPO_PAGE"
