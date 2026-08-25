@@ -16,7 +16,7 @@ var pig: CharacterBody3D
 var dog: CharacterBody3D
 var hold_until := 0.0
 var timer := 0.0
-var ready := false
+var is_bound := false
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -44,12 +44,12 @@ func _bind() -> void:
     hold_until = Time.get_ticks_msec() / 1000.0 + HOLD_SECONDS
     _stage()
     _enforce_fast_visuals()
-    ready = true
+    is_bound = true
     set_process(true)
     print("HippoOS EarlyReferenceGate active")
 
 func _process(delta: float) -> void:
-    if not ready:
+    if not is_bound:
         return
 
     if Time.get_ticks_msec() / 1000.0 < hold_until:
