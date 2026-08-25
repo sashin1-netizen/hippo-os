@@ -4,9 +4,10 @@ extends Node
 # around the origin: Mochi owns the foreground, Porky reads left-midground and Bao
 # reads right-midground. The companions still run their autonomous behaviour logic.
 
-const PIG_HOME := Vector3(-3.20, 0.72, -3.65)
-const DOG_HOME := Vector3(2.75, 0.75, -3.35)
-const HIPPO_HOME := Vector3(0.0, 0.80, 0.20)
+const PIG_HOME := Vector3(-3.65, 0.72, -3.75)
+const DOG_HOME := Vector3(3.55, 0.75, -3.55)
+const HIPPO_HOME := Vector3(0.0, 0.80, 0.70)
+const MIDGROUND_FRONT_Z := -2.35
 
 var scene_root: Node3D
 var roster: Node
@@ -40,7 +41,7 @@ func _process(delta: float) -> void:
         return
     timer -= delta
     if timer <= 0.0:
-        timer = 0.65
+        timer = 0.45
         _maintain_depth_composition()
 
 func _initial_stage() -> void:
@@ -54,16 +55,16 @@ func _initial_stage() -> void:
         hippo.position = HIPPO_HOME
     if pig != null:
         pig.position = PIG_HOME
-        _set_target(companions, "pig", PIG_HOME + Vector3(0.40, 0.0, 0.25))
+        _set_target(companions, "pig", PIG_HOME + Vector3(0.45, 0.0, 0.25))
     if dog != null:
         dog.position = DOG_HOME
-        _set_target(companions, "sharpei", DOG_HOME + Vector3(-0.30, 0.0, 0.18))
+        _set_target(companions, "sharpei", DOG_HOME + Vector3(-0.40, 0.0, 0.20))
 
-    # Start in a restrained three-quarter wildlife-documentary composition. The
-    # user can still orbit/zoom immediately; this only defines the opening frame.
-    scene_root.set("orbit_yaw", 0.38)
-    scene_root.set("orbit_pitch", -0.10)
-    scene_root.set("orbit_distance", 9.4)
+    # Three-quarter wildlife framing: enough distance to show habitat and the two
+    # supporting companions, while Mochi remains the foreground emotional anchor.
+    scene_root.set("orbit_yaw", 0.34)
+    scene_root.set("orbit_pitch", -0.055)
+    scene_root.set("orbit_distance", 9.8)
     initialized = true
 
 func _maintain_depth_composition() -> void:
@@ -75,17 +76,33 @@ func _maintain_depth_composition() -> void:
     var pig := _node_for(companions, "pig")
     var dog := _node_for(companions, "sharpei")
 
+    # Supporting animals live in the midground, not on top of Mochi. Clamp only the
+    # compositional boundary; their AI still chooses actions and wanders within it.
     if pig != null:
-        if pig.position.z > -1.55 or pig.position.distance_to(PIG_HOME) > 3.8:
-            _set_target(companions, "pig", PIG_HOME + Vector3(randf_range(-0.65, 0.65), 0.0, randf_range(-0.42, 0.42)))
-    if dog != null:
-        if dog.position.z > -1.45 or dog.position.distance_to(DOG_HOME) > 3.6:
-            _set_target(companions, "sharpei", DOG_HOME + Vector3(randf_range(-0.55, 0.55), 0.0, randf_range(-0.40, 0.40)))
+        if pig.position.z > MIDGROUND_FRONT_Z:
+            pig.position.z = MIDGROUND_FRONT_Z
+        if pig.position.x > -1.35:
+            pig.position.x = -1.35
+        if pig.position.distance_to(PIG_HOME) > 2.35:
+            pig.position = pig.position.lerp(PIG_HOME, 0.18)
+        if pig.position.z > -2.65 or pig.position.distance_to(PIG_HOME) > 1.85:
+            _set_target(companions, "pig", PIG_HOME + Vector3(randf_range(-0.55, 0.55), 0.0, randf_range(-0.40, 0.40)))
 
-    # Avoid all three animals stacking on top of each other in the hero frame.
-    if hippo != null and pig != null and hippo.position.distance_to(pig.position) < 2.10:
+    if dog != null:
+        if dog.position.z > MIDGROUND_FRONT_Z:
+            dog.position.z = MIDGROUND_FRONT_Z
+        if dog.position.x < 1.35:
+            dog.position.x = 1.35
+        if dog.position.distance_to(DOG_HOME) > 2.35:
+            dog.position = dog.position.lerp(DOG_HOME, 0.18)
+        if dog.position.z > -2.65 or dog.position.distance_to(DOG_HOME) > 1.85:
+            _set_target(companions, "sharpei", DOG_HOME + Vector3(randf_range(-0.50, 0.50), 0.0, randf_range(-0.40, 0.40)))
+
+    # Avoid all three animals visually stacking even if the autonomous pathfinder
+    # briefly chooses a converging target.
+    if hippo != null and pig != null and hippo.position.distance_to(pig.position) < 2.35:
         _set_target(companions, "pig", PIG_HOME)
-    if hippo != null and dog != null and hippo.position.distance_to(dog.position) < 2.10:
+    if hippo != null and dog != null and hippo.position.distance_to(dog.position) < 2.35:
         _set_target(companions, "sharpei", DOG_HOME)
 
 func _companions() -> Dictionary:
