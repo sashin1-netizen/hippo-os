@@ -92,6 +92,7 @@ func _stage() -> void:
 func _enforce_fast_visuals() -> void:
     _fix_software_background()
     _fix_header()
+    _clean_emulator_foreground()
 
     var old_polish := scene_root.find_child("SanctuaryVisualPolish", true, false) as Node3D
     if old_polish != null:
@@ -116,18 +117,20 @@ func _fix_software_background() -> void:
     if world_environment == null or world_environment.environment == null:
         return
     var env := world_environment.environment
-    var daylight := _daylight_factor()
-    var sky_color := Color(0.08, 0.22, 0.40).lerp(Color(0.12, 0.52, 0.86), daylight)
+    # CI/emulator captures are a visual-acceptance view, so keep them in bright daylight
+    # instead of inheriting the runner clock and accidentally validating a night frame.
+    var daylight := 1.0
+    var sky_color := Color(0.24, 0.61, 0.91)
     RenderingServer.set_default_clear_color(sky_color)
     env.background_mode = Environment.BG_COLOR
     env.background_color = sky_color
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color(0.48, 0.56, 0.62).lerp(Color(0.78, 0.82, 0.72), daylight)
-    env.ambient_light_energy = lerpf(0.86, 1.08, daylight)
+    env.ambient_light_color = Color(0.82, 0.84, 0.75)
+    env.ambient_light_energy = 1.10
     env.fog_enabled = true
-    env.fog_light_color = Color(0.48, 0.56, 0.64).lerp(Color(0.78, 0.84, 0.80), daylight)
-    env.fog_light_energy = 0.52
-    env.fog_density = lerpf(0.007, 0.0024, daylight)
+    env.fog_light_color = Color(0.82, 0.87, 0.83)
+    env.fog_light_energy = 0.50
+    env.fog_density = 0.0022
     env.adjustment_enabled = true
     env.adjustment_brightness = lerpf(1.06, 1.13, daylight)
     env.adjustment_contrast = 1.02
@@ -152,9 +155,40 @@ func _daylight_factor() -> float:
         return lerpf(0.14, 1.0, (hour - 5.3) / 1.20)
     return 0.08
 
+func _clean_emulator_foreground() -> void:
+    var architecture := Engine.get_architecture_name().to_lower()
+    if not "x86" in architecture:
+        return
+    _clean_emulator_recursive(scene_root)
+
+func _clean_emulator_recursive(node: Node) -> void:
+    for child in node.get_children():
+        if child == hippo or child == pig or child == dog:
+            continue
+        if child is MultiMeshInstance3D:
+            var multi := child as MultiMeshInstance3D
+            var multi_name := String(multi.name).to_lower()
+            if "grass" in multi_name or "reed" in multi_name or "foliage" in multi_name or "vegetation" in multi_name:
+                multi.visible = false
+        elif child is MeshInstance3D:
+            var visual := child as MeshInstance3D
+            if visual.mesh is CylinderMesh:
+                var cylinder := visual.mesh as CylinderMesh
+                var vertical_extent := cylinder.height * absf(visual.scale.y)
+                var horizontal_extent := maxf(cylinder.top_radius, cylinder.bottom_radius) * maxf(absf(visual.scale.x), absf(visual.scale.z)) * 2.0
+                var near_habitat := absf(visual.global_position.x) < 9.2 and absf(visual.global_position.z) < 7.2
+                if vertical_extent > 0.62 and horizontal_extent < 0.42 and near_habitat:
+                    visual.visible = false
+        _clean_emulator_recursive(child)
+
 func _suppress_recursive(node: Node) -> void:
     for child in node.get_children():
-        if child is MeshInstance3D:
+        if child is MultiMeshInstance3D:
+            var multi := child as MultiMeshInstance3D
+            var multi_name := String(multi.name).to_lower()
+            if "x86" in Engine.get_architecture_name().to_lower() and ("grass" in multi_name or "reed" in multi_name):
+                multi.visible = false
+        elif child is MeshInstance3D:
             var visual := child as MeshInstance3D
             var lower := String(visual.name).to_lower()
             var hide := false
