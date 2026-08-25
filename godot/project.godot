@@ -37,6 +37,7 @@ PhoneVisualHotfix="*res://scripts/phone_visual_hotfix.gd"
 ProductionQualityPass="*res://scripts/production_quality_pass.gd"
 CompanionLifeMotion="*res://scripts/companion_life_motion.gd"
 PresentationCleanup="*res://scripts/presentation_cleanup.gd"
+NaturalPresentationFinish="*res://scripts/natural_presentation_finish.gd"
 
 [display]
 
