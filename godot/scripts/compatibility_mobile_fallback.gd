@@ -185,9 +185,10 @@ func _build_gobkit_landscape() -> int:
         Vector3(5.6, 0.0, 4.6), Vector3(-2.8, 0.0, 4.9),
         Vector3(5.9, 0.0, 0.2), Vector3(-5.0, 0.0, -2.8)
     ]
+    var rock_files: Array[String] = ["Rock001.glb", "Rock002.glb", "Rock003.glb"]
     for i in range(rock_positions.size()):
-        var rock_file := ["Rock001.glb", "Rock002.glb", "Rock003.glb"][i % 3]
-        count += int(_spawn_gobkit_prop(String(rock_file), "CommunityRock%02d" % i, rock_positions[i], 0.48 + float(i % 3) * 0.12, float(i) * 0.71))
+        var rock_file: String = rock_files[i % rock_files.size()]
+        count += int(_spawn_gobkit_prop(rock_file, "CommunityRock%02d" % i, rock_positions[i], 0.48 + float(i % 3) * 0.12, float(i) * 0.71))
 
     var reed_positions: Array[Vector3] = [
         Vector3(-0.3, 0.0, 3.9), Vector3(0.6, 0.0, 4.5),
