@@ -69,11 +69,46 @@ case "$component" in
     ;;
 esac
 
+# Pre-confirm immersive mode where Android honours this setting. Android 16 may still
+# show a one-time SystemUI education overlay; that overlay is detected and dismissed
+# explicitly below before any screenshot is eligible to pass.
 adb shell settings put secure immersive_mode_confirmations confirmed || true
 adb logcat -c
 adb shell am force-stop "$PACKAGE" || true
 adb shell am start -W -n "$component" | tee "$EVIDENCE_DIR/adb-launch.txt"
 grep -q 'Status: ok' "$EVIDENCE_DIR/adb-launch.txt"
+
+# Dismiss Android's first-run "Viewing full screen" education bubble without hardcoded
+# device coordinates. UiAutomator supplies the actual Got it button bounds.
+for dismiss_attempt in $(seq 1 5); do
+  adb shell uiautomator dump /sdcard/hippo-window.xml >/dev/null 2>&1 || true
+  adb shell cat /sdcard/hippo-window.xml 2>/dev/null | tr -d '\r' > "$EVIDENCE_DIR/window.xml" || true
+  if ! grep -q 'Viewing full screen' "$EVIDENCE_DIR/window.xml"; then
+    break
+  fi
+
+  read -r tap_x tap_y < <(python3 - "$EVIDENCE_DIR/window.xml" <<'PY'
+import re
+import sys
+text = open(sys.argv[1], encoding='utf-8', errors='ignore').read()
+match = re.search(r'text="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+if not match:
+    match = re.search(r'content-desc="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+if match:
+    x1, y1, x2, y2 = map(int, match.groups())
+    print((x1 + x2) // 2, (y1 + y2) // 2)
+else:
+    print(0, 0)
+PY
+  )
+  if [[ "$tap_x" -gt 0 && "$tap_y" -gt 0 ]]; then
+    adb shell input tap "$tap_x" "$tap_y"
+  else
+    adb shell input keyevent 66 || true
+    adb shell input keyevent 4 || true
+  fi
+  sleep 1
+done
 
 visible=0
 for attempt in $(seq 1 18); do
@@ -101,6 +136,21 @@ for attempt in $(seq 1 18); do
     exit 1
   fi
 
+  # A colourful Android/SystemUI overlay is not evidence that the game rendered.
+  # Require Hippo OS to own the focused window before accepting a frame.
+  adb shell dumpsys window windows | tr -d '\r' > "$EVIDENCE_DIR/window-focus.txt"
+  if ! grep -E "mCurrentFocus|mFocusedApp" "$EVIDENCE_DIR/window-focus.txt" | grep -q "$PACKAGE"; then
+    echo "Hippo OS is not the focused foreground window on attempt ${attempt}; retrying."
+    continue
+  fi
+
+  adb shell uiautomator dump /sdcard/hippo-window.xml >/dev/null 2>&1 || true
+  adb shell cat /sdcard/hippo-window.xml 2>/dev/null | tr -d '\r' > "$EVIDENCE_DIR/window.xml" || true
+  if grep -q 'Viewing full screen' "$EVIDENCE_DIR/window.xml"; then
+    echo "Android immersive-mode tutorial still covers Hippo OS on attempt ${attempt}; retrying."
+    continue
+  fi
+
   adb exec-out screencap -p > "$EVIDENCE_DIR/launch-attempt.png"
   test -s "$EVIDENCE_DIR/launch-attempt.png"
 
@@ -113,14 +163,25 @@ extrema = image.getextrema()
 spread = max(high - low for low, high in extrema)
 deviation = max(stat.stddev)
 mean = sum(stat.mean) / 3.0
-print(f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} spread={spread}')
+pixels = image.getdata()
+near_white = sum(1 for r, g, b in pixels if r >= 238 and g >= 238 and b >= 238)
+white_fraction = near_white / float(image.width * image.height)
+print(
+    f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} '
+    f'spread={spread} near_white={white_fraction:.4f}'
+)
 if deviation < 8.0 or spread < 30 or mean < 8.0:
+    raise SystemExit(1)
+# System education/dialog surfaces can have excellent contrast and therefore fooled
+# the older pixel-only validator. A clean sanctuary launch must not be dominated by
+# Android's near-white system surface.
+if white_fraction > 0.18:
     raise SystemExit(1)
 PY
   then
     cp "$EVIDENCE_DIR/launch-attempt.png" "$EVIDENCE_DIR/launch.png"
     visible=1
-    echo "Visible Hippo OS frame proven on attempt ${attempt}."
+    echo "Visible Hippo OS foreground frame proven on attempt ${attempt}."
     break
   fi
 done
@@ -131,4 +192,4 @@ bytes="$(stat -c%s "$EVIDENCE_DIR/launch.png")"
 echo "Launch screenshot bytes: $bytes"
 test "$bytes" -ge 30000
 
-echo 'Android 16 launch and visible-render proof: PASS.'
+echo 'Android 16 Hippo OS foreground and visible-render proof: PASS.'
