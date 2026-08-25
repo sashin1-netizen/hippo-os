@@ -139,18 +139,25 @@ func _remove_foreground_obstructions() -> void:
 func _collect_fallback_visuals() -> void:
     fallback_visuals.clear()
     fallback_base_scales.clear()
-    for companion in companions:
-        if companion.find_child("ProductionVisual", false, false) != null:
-            continue
-        var visual := companion.get_node_or_null("Visual") as Node3D
-        if visual == null:
-            for child in companion.get_children():
-                if child is Node3D and not child is CollisionShape3D:
-                    visual = child as Node3D
-                    break
-        if visual != null:
-            fallback_visuals.append(visual)
-            fallback_base_scales.append(visual.scale)
+    if companions.is_empty():
+        return
+
+    # Porky and Bao already receive species-specific breathing, gait, tail and ear
+    # motion from CompanionRoster. Only add this low-amplitude fallback breathing to
+    # Mochi, whose current placeholder otherwise reads more rigidly. Production rigs
+    # remain untouched.
+    var hippo := companions[0]
+    if hippo.find_child("ProductionVisual", false, false) != null:
+        return
+    var visual := hippo.get_node_or_null("Visual") as Node3D
+    if visual == null:
+        for child in hippo.get_children():
+            if child is Node3D and not child is CollisionShape3D:
+                visual = child as Node3D
+                break
+    if visual != null:
+        fallback_visuals.append(visual)
+        fallback_base_scales.append(visual.scale)
 
 func _animate_fallback_breathing() -> void:
     if fallback_visuals.is_empty():
@@ -161,7 +168,7 @@ func _animate_fallback_breathing() -> void:
         if not is_instance_valid(visual):
             continue
         var base := fallback_base_scales[i]
-        var phase := now * (1.20 + float(i) * 0.11) + float(i) * 1.7
+        var phase := now * 1.18 + float(i) * 1.7
         var breath := sin(phase)
         var settle := sin(phase * 0.47 + 0.8)
         visual.scale = Vector3(
