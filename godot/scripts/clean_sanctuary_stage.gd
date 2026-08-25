@@ -13,10 +13,13 @@ var hippo: Node3D
 var pig: Node3D
 var dog: Node3D
 var timer := 0.0
+var legacy_visuals: Array[GeometryInstance3D] = []
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
-    process_priority = 3300
+    # Run after every older presentation/habitat autoload so they cannot re-enable
+    # legacy geometry after this stage takes visual ownership.
+    process_priority = 1000000
     set_process(false)
     call_deferred("_bind_when_ready")
 
@@ -41,15 +44,47 @@ func _bind_when_ready() -> void:
 
     _hide_legacy_visuals(scene_root)
     _build_stage()
+    _cache_legacy_visuals()
+    _force_legacy_hidden()
     set_process(true)
 
 func _process(delta: float) -> void:
     if scene_root == null:
         return
+
+    # Older environment scripts may set visible=true during their own process pass.
+    # Force the cached legacy geometry off every frame, then periodically rescan for
+    # any late-created geometry while leaving the clean stage and all animals intact.
+    _force_legacy_hidden()
+
     timer -= delta
     if timer <= 0.0:
         timer = 0.80
-        _hide_legacy_visuals(scene_root)
+        _cache_legacy_visuals()
+        _force_legacy_hidden()
+
+func _cache_legacy_visuals() -> void:
+    legacy_visuals.clear()
+    if scene_root == null:
+        return
+    _collect_legacy_visuals(scene_root)
+
+func _collect_legacy_visuals(node: Node) -> void:
+    if stage_root != null and (node == stage_root or stage_root.is_ancestor_of(node)):
+        return
+    if _belongs_to_animal(node):
+        return
+
+    if node is GeometryInstance3D:
+        legacy_visuals.append(node as GeometryInstance3D)
+
+    for child in node.get_children():
+        _collect_legacy_visuals(child)
+
+func _force_legacy_hidden() -> void:
+    for visual in legacy_visuals:
+        if visual != null and is_instance_valid(visual):
+            visual.visible = false
 
 func _hide_legacy_visuals(node: Node) -> void:
     if stage_root != null and (node == stage_root or stage_root.is_ancestor_of(node)):
