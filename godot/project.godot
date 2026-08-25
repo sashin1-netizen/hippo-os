@@ -15,7 +15,6 @@ AdaptiveSoundscape="*res://scripts/adaptive_soundscape.gd"
 AtmospherePolish="*res://scripts/atmosphere_polish.gd"
 VisualSanctuaryPolish="*res://scripts/visual_sanctuary_polish.gd"
 CharacterMotionPolish="*res://scripts/character_motion_polish.gd"
-PersonalUsePolish="*res://scripts/personal_use_polish.gd"
 StartupFailSafe="*res://scripts/startup_fail_safe.gd"
 DeviceDiagnostics="*res://scripts/device_diagnostics.gd"
 CompanionRoster="*res://scripts/companion_roster.gd"
@@ -38,7 +37,6 @@ CompanionLifeMotion="*res://scripts/companion_life_motion.gd"
 PresentationCleanup="*res://scripts/presentation_cleanup.gd"
 ReferenceFidelityFinish="*res://scripts/reference_fidelity_finish.gd"
 OpenWorldDirector="*res://scripts/open_world_director.gd"
-OpenWorldFinalFinish="*res://scripts/open_world_final_finish.gd"
 
 [display]
 
