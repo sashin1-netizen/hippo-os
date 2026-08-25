@@ -214,26 +214,40 @@ jobs:
           emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
           script: |
             set -eu
+            PACKAGE=com.sashin.hippoos.personal.ci
+            ACTIVITY=com.godot.game.GodotAppLauncher
             adb wait-for-device
             adb shell getprop ro.build.version.release | grep -q '^16$'
             adb shell getprop ro.build.version.sdk | grep -q '^36$'
             adb install -r apk/HippoOS-Emulator-CI.apk | tee apk/adb-install.txt
             grep -q '^Success$' apk/adb-install.txt
-            adb shell pm path com.sashin.hippoos.personal.ci | tee apk/adb-package-path.txt
-            adb shell dumpsys package com.sashin.hippoos.personal.ci | tee apk/adb-package.txt
+            adb shell pm path "$PACKAGE" | tee apk/adb-package-path.txt
+            adb shell dumpsys package "$PACKAGE" | tee apk/adb-package.txt
             grep -q 'versionCode=4' apk/adb-package.txt
             grep -q 'targetSdk=36' apk/adb-package.txt
             adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb logcat -c
-            adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
+            adb shell am force-stop "$PACKAGE" || true
+            adb shell am start -W -n "$PACKAGE/$ACTIVITY" | tee apk/adb-launch.txt
+            grep -q 'Status: ok' apk/adb-launch.txt
 
             visible=0
             for attempt in $(seq 1 18); do
               sleep 5
-              adb shell pidof com.sashin.hippoos.personal.ci | tee apk/adb-pid.txt
-              test -s apk/adb-pid.txt
-              adb logcat -d --pid=$(cat apk/adb-pid.txt) > apk/adb-app-logcat.txt
+              pid="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
+              printf '%s\n' "$pid" | tee apk/adb-pid.txt
               adb logcat -d -t 1200 > apk/adb-logcat.txt
+
+              if [ -z "$pid" ]; then
+                if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt; then
+                  echo 'Hippo OS process crashed during Android 16 launch proof.' >&2
+                  exit 1
+                fi
+                echo "Hippo OS process not resident yet on attempt ${attempt}; retrying."
+                continue
+              fi
+
+              adb logcat -d --pid="$pid" > apk/adb-app-logcat.txt
               ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt
               ! grep -Eiq 'Program linking failed|GL_MAX_FRAGMENT_UNIFORM_VECTORS|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/adb-app-logcat.txt
               adb exec-out screencap -p > apk/launch-attempt.png
@@ -272,6 +286,7 @@ jobs:
             apk/adb-install.txt
             apk/adb-package-path.txt
             apk/adb-package.txt
+            apk/adb-launch.txt
             apk/adb-pid.txt
             apk/adb-app-logcat.txt
             apk/adb-logcat.txt
