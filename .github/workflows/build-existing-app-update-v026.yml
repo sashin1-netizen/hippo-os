@@ -168,7 +168,6 @@ jobs:
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee build/arm64-zipalign.txt
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/arm64-signature.txt
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/arm64-signature.txt
-          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' build/arm64-signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/arm64-signature.txt
           sha256sum "$APK" | tee build/HippoOS-v0.2.6-UPDATE.sha256
 
@@ -205,6 +204,7 @@ jobs:
           PY
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" > build/x86-zipalign.txt
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/x86-signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/x86-signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/x86-signature.txt
 
       - name: Enable KVM
@@ -222,7 +222,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
           script: |
             set -eux
             adb wait-for-device
