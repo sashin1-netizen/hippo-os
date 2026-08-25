@@ -6,8 +6,8 @@ extends Node
 # distant supporting companions and a daylight-safe environment.
 
 const HIPPO_HOME := Vector3(0.0, 0.80, 0.20)
-const PIG_HOME := Vector3(-4.25, 0.72, -3.15)
-const DOG_HOME := Vector3(3.55, 0.75, -3.55)
+const PIG_HOME := Vector3(-2.00, 0.72, -5.00)
+const DOG_HOME := Vector3(-5.00, 0.75, -1.20)
 
 var scene_root: Node3D
 var roster: Node
@@ -59,10 +59,10 @@ func _process(delta: float) -> void:
         _apply_environment_finish()
 
 func _apply_opening_shot() -> void:
-    # Local +X is Mochi's anatomical forward axis. A +X/+Z camera gives a clean
-    # three-quarter face view rather than the side-on body silhouette seen previously.
-    scene_root.set("orbit_yaw", 0.82)
-    scene_root.set("orbit_pitch", -0.025)
+    # Mochi is authored facing local +X. Move the camera closer to that forward axis
+    # so the face leads the frame and the body recedes behind it instead of hiding it.
+    scene_root.set("orbit_yaw", 1.15)
+    scene_root.set("orbit_pitch", -0.020)
     scene_root.set("orbit_distance", 11.8)
     if camera != null:
         camera.fov = 50.0
@@ -74,7 +74,7 @@ func _build_hero_bank() -> void:
     var bank := MeshInstance3D.new()
     bank.name = "HeroMudBank"
     var mesh := PlaneMesh.new()
-    mesh.size = Vector2(6.4, 4.8)
+    mesh.size = Vector2(6.6, 5.0)
     mesh.subdivide_width = 8
     mesh.subdivide_depth = 6
     bank.mesh = mesh
@@ -93,33 +93,53 @@ func _clear_foreground_clutter() -> void:
     if hippo == null:
         return
 
-    # The target sanctuary does not use giant lily pads around the hero animal.
+    # Retire overlapping legacy decoration worlds from the production opening. The
+    # grasslands layer plus the base sanctuary remain, so gameplay zones are untouched.
+    for root_name in ["PremiumExperienceWorld", "SanctuaryVisualPolish"]:
+        var legacy_root := scene_root.find_child(root_name, true, false) as Node3D
+        if legacy_root != null:
+            legacy_root.visible = false
+
+    # Remove the original ring of tall prototype stems. The feeding bowl is shorter
+    # than this threshold and remains interactive.
+    for child in scene_root.get_children():
+        if not (child is MeshInstance3D):
+            continue
+        var direct_visual := child as MeshInstance3D
+        if direct_visual.mesh is CylinderMesh:
+            var direct_cylinder := direct_visual.mesh as CylinderMesh
+            if direct_cylinder.height > 0.40:
+                direct_visual.visible = false
+
     for pad_node in scene_root.find_children("LilyPad*", "MeshInstance3D", true, false):
         if pad_node is MeshInstance3D:
             (pad_node as MeshInstance3D).visible = false
 
     var water := scene_root.find_child("ForegroundWatercourse", true, false) as MeshInstance3D
     if water != null:
-        water.scale = Vector3(0.48, 1.0, 0.20)
-        water.position = Vector3(2.70, 0.038, 3.85)
+        water.scale = Vector3(0.42, 1.0, 0.17)
+        water.position = Vector3(3.05, 0.038, 4.15)
 
     var grass := scene_root.find_child("GrassField", true, false) as MultiMeshInstance3D
-    if grass != null and grass.multimesh != null and not bool(grass.get_meta("launch_corridor_cleared", false)):
+    if grass != null and grass.multimesh != null and not bool(grass.get_meta("launch_corridor_cleared_v2", false)):
         var multi := grass.multimesh
         for i in range(multi.instance_count):
             var transform := multi.get_instance_transform(i)
             var p := transform.origin
             var hero_distance := Vector2(p.x - HIPPO_HOME.x, p.z - HIPPO_HOME.z).length()
-            if hero_distance < 4.10:
-                transform.basis = transform.basis.scaled(Vector3(0.035, 0.035, 0.035))
-            elif hero_distance < 5.30:
-                transform.basis = transform.basis.scaled(Vector3(0.58, 0.48, 0.58))
+            if hero_distance < 4.45:
+                transform.basis = transform.basis.scaled(Vector3(0.025, 0.025, 0.025))
+            elif hero_distance < 5.75:
+                transform.basis = transform.basis.scaled(Vector3(0.46, 0.40, 0.46))
             multi.set_instance_transform(i, transform)
-        grass.set_meta("launch_corridor_cleared", true)
+        grass.set_meta("launch_corridor_cleared_v2", true)
 
-    # Remove near-camera procedural trees/shrubs/reeds while preserving distant ridges.
-    var world := scene_root.find_child("GrasslandsProductionLayer", true, false) as Node3D
-    if world != null:
+    # Clear every tall procedural tree/reed/canopy near the hero, not only one layer.
+    # This removes the central trunk that survived the earlier camera-cone pass.
+    for world_name in ["GrasslandsProductionLayer", "PremiumExperienceWorld", "SanctuaryVisualPolish"]:
+        var world := scene_root.find_child(world_name, true, false) as Node3D
+        if world == null:
+            continue
         for child in world.get_children():
             if not (child is MeshInstance3D):
                 continue
@@ -127,13 +147,13 @@ func _clear_foreground_clutter() -> void:
             if visual.name == "DistantRidge" or visual.name == "DistantBird":
                 continue
             var p2 := Vector2(visual.global_position.x - HIPPO_HOME.x, visual.global_position.z - HIPPO_HOME.z)
-            if p2.length() > 5.5:
+            if p2.length() > 8.0:
                 continue
             if visual.mesh is CylinderMesh:
                 var cylinder := visual.mesh as CylinderMesh
-                if cylinder.height > 0.40:
+                if cylinder.height > 0.34:
                     visual.visible = false
-            elif visual.mesh is SphereMesh and visual.global_position.y > 0.45:
+            elif visual.mesh is SphereMesh and visual.global_position.y > 0.48:
                 visual.visible = false
 
 func _stage_companions() -> void:
@@ -161,9 +181,9 @@ func _maintain_companion_depth() -> void:
         return
     var pig := _node_for(companions, "pig")
     var dog := _node_for(companions, "sharpei")
-    if pig != null and pig.position.distance_to(PIG_HOME) > 1.55:
+    if pig != null and pig.position.distance_to(PIG_HOME) > 1.25:
         _set_companion_state(companions, "pig", PIG_HOME, "wander")
-    if dog != null and dog.position.distance_to(DOG_HOME) > 1.55:
+    if dog != null and dog.position.distance_to(DOG_HOME) > 1.25:
         _set_companion_state(companions, "sharpei", DOG_HOME, "watch")
     roster.set("companions", companions)
 
