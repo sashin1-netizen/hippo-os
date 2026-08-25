@@ -50,6 +50,8 @@ handheld/orientation=1
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
 rendering_device/fallback_to_opengl3=true
+limits/opengl/max_lights_per_object=4
+limits/opengl/max_renderable_lights=16
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 
