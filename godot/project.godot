@@ -38,6 +38,7 @@ ProductionQualityPass="*res://scripts/production_quality_pass.gd"
 CompanionLifeMotion="*res://scripts/companion_life_motion.gd"
 PresentationCleanup="*res://scripts/presentation_cleanup.gd"
 NaturalPresentationFinish="*res://scripts/natural_presentation_finish.gd"
+ReferenceFidelityFinish="*res://scripts/reference_fidelity_finish.gd"
 
 [display]
 
