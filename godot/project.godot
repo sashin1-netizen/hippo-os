@@ -34,6 +34,7 @@ PresentationCleanup="*res://scripts/presentation_cleanup.gd"
 ReferenceFidelityFinish="*res://scripts/reference_fidelity_finish.gd"
 MovementAxisCameraConeFix="*res://scripts/movement_axis_camera_cone_fix.gd"
 CleanSanctuaryStage="*res://scripts/clean_sanctuary_stage.gd"
+PortraitSanctuaryV2="*res://scripts/portrait_sanctuary_v2.gd"
 
 [display]
 
