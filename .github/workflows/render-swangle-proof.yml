@@ -48,9 +48,10 @@ jobs:
             adb shell getprop ro.build.version.sdk | grep -q '^36$'
             adb install -r apk/HippoOS-Emulator-CI.apk | tee apk/swangle-install.txt
             grep -q '^Success$' apk/swangle-install.txt
+            adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb logcat -c
             adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
-            sleep 12
+            sleep 15
             adb shell pidof com.sashin.hippoos.personal.ci | tee apk/swangle-pid.txt
             test -s apk/swangle-pid.txt
             adb logcat -d --pid=$(cat apk/swangle-pid.txt) > apk/swangle-app-logcat.txt
