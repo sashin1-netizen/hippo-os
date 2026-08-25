@@ -54,12 +54,10 @@ func _bind() -> void:
         push_warning("FinalPresentationDirector could not bind to CompatibilityOpenWorld")
         return
 
-    # Allow the asset loader and world builders to finish their one-time construction,
-    # then freeze the two remaining legacy builder loops. They are builders only from
-    # this point forward; this node is the only presentation authority.
+    # Let one-time builders and asset loading settle. Builders are quarantined only after
+    # their useful world root exists, so consolidation never races the build itself.
     for _frame in range(8):
         await get_tree().process_frame
-    _quarantine_legacy_builders()
 
     scene_root.set_meta("presentation_min_distance_portrait", 7.4)
     scene_root.set_meta("presentation_max_distance_portrait", 10.8)
@@ -116,21 +114,32 @@ func _apply_pinch_zoom() -> void:
     previous_pinch_distance = distance
 
 func _apply_presentation(delta: float) -> void:
+    _refresh_builder_worlds()
+    _quarantine_legacy_builders()
     _enforce_world_visibility()
     _enforce_daylight()
     _maintain_opening(delta)
     _fix_hud()
     _hide_prototype_focus_ring()
 
+func _refresh_builder_worlds() -> void:
+    if compatibility_world == null or not is_instance_valid(compatibility_world):
+        compatibility_world = scene_root.find_child("CompatibilityOpenWorld", true, false) as Node3D
+
 func _quarantine_legacy_builders() -> void:
-    # These two remain autoloaded temporarily because they construct useful world layers.
-    # Once construction is complete, stop their recurring presentation loops so they
-    # cannot overwrite this director's final state.
-    for node_name in ["OpenWorldDirector", "CompatibilityMobileFallback"]:
-        var node := get_node_or_null("/root/" + node_name)
-        if node != null:
-            node.set_process(false)
-            node.set_physics_process(false)
+    # OpenWorldDirector and CompatibilityMobileFallback are retained only because they
+    # construct useful world roots. Their recurring presentation loops stop once those
+    # roots exist. FinalPresentationDirector is then the sole visual authority.
+    var open_world_builder := get_node_or_null("/root/OpenWorldDirector")
+    var open_world_root := scene_root.find_child("OpenWorldAuthority", true, false) as Node3D
+    if open_world_builder != null and open_world_root != null:
+        open_world_builder.set_process(false)
+        open_world_builder.set_physics_process(false)
+
+    var compatibility_builder := get_node_or_null("/root/CompatibilityMobileFallback")
+    if compatibility_builder != null and compatibility_world != null:
+        compatibility_builder.set_process(false)
+        compatibility_builder.set_physics_process(false)
 
 func _maintain_opening(delta: float) -> void:
     var holding := Time.get_ticks_msec() / 1000.0 < hold_until
@@ -156,8 +165,6 @@ func _maintain_opening(delta: float) -> void:
 
 func _enforce_world_visibility() -> void:
     if _is_compatibility_renderer():
-        if compatibility_world == null or not is_instance_valid(compatibility_world):
-            compatibility_world = scene_root.find_child("CompatibilityOpenWorld", true, false) as Node3D
         if compatibility_world != null:
             compatibility_world.visible = true
             _hide_non_authoritative_geometry(scene_root)
