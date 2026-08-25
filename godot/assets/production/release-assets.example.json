@@ -2,6 +2,8 @@
   "models": {
     "hippo": {
       "file": "assets/animals/mochi.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",
@@ -16,6 +18,8 @@
     },
     "pig": {
       "file": "assets/animals/porky.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",
@@ -30,6 +34,8 @@
     },
     "dog": {
       "file": "assets/animals/bao.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",

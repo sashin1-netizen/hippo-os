@@ -1,8 +1,13 @@
 {
   "device_model": "REQUIRED",
   "android_version": "REQUIRED",
-  "tested_build_sha256": "REQUIRED",
+  "tested_commit_sha": "REQUIRED_40_CHAR_GIT_SHA",
+  "tested_apk_sha256": "REQUIRED_64_CHAR_SHA256",
   "tested_at": "REQUIRED",
+  "visual_reference_id": "grasslands-sanctuary-v1",
+  "visual_acceptance_reviewer": "REQUIRED",
+  "visual_acceptance_reviewed_at": "REQUIRED",
+  "accepted_phone_screenshots": [],
   "installs_on_target_phone": false,
   "launches_from_home_screen": false,
   "device_check_passes": false,
@@ -15,5 +20,15 @@
   "vfx_passes": false,
   "ui_visual_acceptance_passes": false,
   "performance_passes": false,
-  "production_visual_acceptance_passes": false
+  "production_visual_acceptance_passes": false,
+  "no_blank_or_black_render_passes": false,
+  "no_runtime_shader_errors_passes": false,
+  "reference_layout_match_passes": false,
+  "reference_interaction_match_passes": false,
+  "all_exposed_controls_functional_passes": false,
+  "no_placeholder_geometry_passes": false,
+  "animal_realism_approved": false,
+  "habitat_realism_approved": false,
+  "camera_framing_approved": false,
+  "ui_finish_approved": false
 }
