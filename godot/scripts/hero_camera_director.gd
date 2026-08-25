@@ -2,7 +2,8 @@ extends Node
 
 # Cinematic wildlife camera. Portrait mode deliberately keeps the selected companion
 # below visual centre while preserving enough distance for a full-body hero read,
-# foreground habitat and environmental depth.
+# foreground habitat and environmental depth. FinalPresentationDirector may publish
+# camera framing bounds as scene metadata; this service remains the only camera mover.
 
 var scene_root: Node3D
 var roster: Node
@@ -61,11 +62,15 @@ func _process(delta: float) -> void:
     var yaw := float(scene_root.get("orbit_yaw"))
     var pitch := clampf(float(scene_root.get("orbit_pitch")), -0.30, 0.10)
     var requested_distance := float(scene_root.get("orbit_distance"))
-    var min_distance := 9.4 if portrait else 6.2
-    var max_distance := 12.4 if portrait else 8.8
+
+    var default_min := 9.4 if portrait else 6.2
+    var default_max := 12.4 if portrait else 8.8
+    var min_meta := "presentation_min_distance_portrait" if portrait else "presentation_min_distance_landscape"
+    var max_meta := "presentation_max_distance_portrait" if portrait else "presentation_max_distance_landscape"
+    var min_distance := float(scene_root.get_meta(min_meta, default_min))
+    var max_distance := float(scene_root.get_meta(max_meta, default_max))
+    max_distance = maxf(max_distance, min_distance + 0.5)
     var distance := clampf(requested_distance, min_distance, max_distance)
-    if portrait:
-        distance = maxf(distance, 10.6)
 
     var horizontal := cos(pitch) * distance
     var camera_height := 0.56 if portrait else 0.42
@@ -78,7 +83,10 @@ func _process(delta: float) -> void:
     camera.global_position = camera.global_position.lerp(desired_camera, clampf(delta * 5.2, 0.0, 1.0))
     var upward_composition := 0.12 if portrait else 0.08
     camera.look_at(smoothed_pivot + Vector3(0.0, upward_composition, 0.0), Vector3.UP)
-    var target_fov := 50.0 if portrait else 45.0
+
+    var default_fov := 50.0 if portrait else 45.0
+    var fov_meta := "presentation_target_fov_portrait" if portrait else "presentation_target_fov_landscape"
+    var target_fov := float(scene_root.get_meta(fov_meta, default_fov))
     camera.fov = lerpf(camera.fov, target_fov, clampf(delta * 3.6, 0.0, 1.0))
 
 func _selected_node() -> Node3D:
