@@ -24,7 +24,7 @@ var maintenance_timer := 0.0
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
-    process_priority = 9000
+    process_priority = 9500
     set_process(false)
     call_deferred("_bind_when_ready")
 
@@ -216,28 +216,41 @@ func _enforce_daylight() -> void:
 
     var env := world_environment.environment
     var daylight := _daylight_factor()
-    var sky := env.sky
-    var sky_material: ProceduralSkyMaterial
-    if sky == null or not (sky.sky_material is ProceduralSkyMaterial):
-        sky = Sky.new()
-        sky.radiance_size = Sky.RADIANCE_SIZE_128
-        sky_material = ProceduralSkyMaterial.new()
-        sky.sky_material = sky_material
-        env.sky = sky
+    var architecture := Engine.get_architecture_name().to_lower()
+    var sky_color := Color(0.055, 0.145, 0.30).lerp(Color(0.075, 0.43, 0.78), daylight)
+    RenderingServer.set_default_clear_color(sky_color)
+
+    # Android CI uses a software x86 renderer where procedural skies can present black.
+    # Keep the proof path deterministic without downgrading the physical ARM64 renderer.
+    if "x86" in architecture:
+        env.background_mode = Environment.BG_COLOR
+        env.background_color = sky_color
+        env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+        env.ambient_light_color = Color(0.39, 0.48, 0.60).lerp(Color(0.72, 0.78, 0.70), daylight)
+        env.reflected_light_source = Environment.REFLECTION_SOURCE_BG
     else:
-        sky_material = sky.sky_material as ProceduralSkyMaterial
+        var sky := env.sky
+        var sky_material: ProceduralSkyMaterial
+        if sky == null or not (sky.sky_material is ProceduralSkyMaterial):
+            sky = Sky.new()
+            sky.radiance_size = Sky.RADIANCE_SIZE_128
+            sky_material = ProceduralSkyMaterial.new()
+            sky.sky_material = sky_material
+            env.sky = sky
+        else:
+            sky_material = sky.sky_material as ProceduralSkyMaterial
 
-    sky_material.sky_top_color = Color(0.055, 0.145, 0.30).lerp(Color(0.075, 0.43, 0.78), daylight)
-    sky_material.sky_horizon_color = Color(0.32, 0.38, 0.48).lerp(Color(0.70, 0.86, 0.97), daylight)
-    sky_material.ground_horizon_color = Color(0.18, 0.23, 0.16).lerp(Color(0.48, 0.55, 0.30), daylight)
-    sky_material.ground_bottom_color = Color(0.045, 0.060, 0.040)
-    sky_material.sun_angle_max = 18.0
-    sky_material.sun_curve = 0.05
-    sky_material.use_debanding = true
+        sky_material.sky_top_color = sky_color
+        sky_material.sky_horizon_color = Color(0.32, 0.38, 0.48).lerp(Color(0.70, 0.86, 0.97), daylight)
+        sky_material.ground_horizon_color = Color(0.18, 0.23, 0.16).lerp(Color(0.48, 0.55, 0.30), daylight)
+        sky_material.ground_bottom_color = Color(0.045, 0.060, 0.040)
+        sky_material.sun_angle_max = 18.0
+        sky_material.sun_curve = 0.05
+        sky_material.use_debanding = true
+        env.background_mode = Environment.BG_SKY
+        env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+        env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 
-    env.background_mode = Environment.BG_SKY
-    env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-    env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
     env.ambient_light_energy = lerpf(0.80, 1.08, daylight)
     env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     env.fog_enabled = true
@@ -288,12 +301,20 @@ func _fix_hud_brand() -> void:
     if brand_value is Label:
         var brand := brand_value as Label
         brand.text = "HIPPO OS"
-        brand.add_theme_font_size_override("font_size", 23)
+        brand.add_theme_font_size_override("font_size", 22)
+        var size := get_viewport().get_visible_rect().size
+        if size.y >= size.x:
+            brand.position.x = size.x * 0.5 - 78.0
+            brand.size.x = 156.0
     var subtitle_value: Variant = hud.get("brand_subtitle")
     if subtitle_value is Label:
         var subtitle := subtitle_value as Label
         subtitle.text = "Sanctuary"
-        subtitle.add_theme_font_size_override("font_size", 14)
+        subtitle.add_theme_font_size_override("font_size", 13)
+        var size2 := get_viewport().get_visible_rect().size
+        if size2.y >= size2.x:
+            subtitle.position.x = size2.x * 0.5 - 78.0
+            subtitle.size.x = 156.0
 
 func _find_camera(node: Node) -> Camera3D:
     if node is Camera3D and (node as Camera3D).current:
