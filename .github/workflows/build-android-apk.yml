@@ -10,7 +10,7 @@ on:
     paths: ['godot/**', '.github/test-signing/**', '.github/scripts/**', '.github/workflows/build-android-apk.yml', '.github/workflows/build-play-aab.yml']
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: hippoos-android-${{ github.ref }}
@@ -79,6 +79,7 @@ jobs:
           test -f export_presets.cfg
           test -f scripts/production_asset_loader.gd
           test -f scripts/lifelike_rendering.gd
+          test -f scripts/grasslands_sanctuary.gd
           test -f scripts/pbr_habitat.gd
           test -f scripts/cinematic_quality.gd
           test -s assets/habitat/pbr/forrest_ground_01_diff_4k.jpg
@@ -120,6 +121,7 @@ jobs:
           ! grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS.contents.txt
           "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee build/HippoOS.zipalign.txt
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/HippoOS.signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/HippoOS.signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/HippoOS.signature.txt
           sha256sum "$APK" | tee build/HippoOS.apk.sha256
       - name: Export x86_64 OpenGL emulator APK
@@ -131,15 +133,13 @@ jobs:
           sed -i 's/renderer\/rendering_method="mobile"/renderer\/rendering_method="gl_compatibility"/' project.godot
           sed -i 's/renderer\/rendering_method.mobile="mobile"/renderer\/rendering_method.mobile="gl_compatibility"/' project.godot
           sed -i '/renderer\/rendering_method.mobile="gl_compatibility"/a limits/opengl/max_lights_per_object=2\nlimits/opengl/max_renderable_lights=8' project.godot
-          sed -i '/^AtmospherePolish=/d;/^VisualSanctuaryPolish=/d;/^PremiumExperience=/d;/^LifelikeRendering=/d;/^GrasslandsSanctuary=/d;/^PBRHabitat=/d;/^CinematicQuality=/d' project.godot
           grep -q 'renderer/rendering_method="gl_compatibility"' project.godot
           grep -q 'limits/opengl/max_lights_per_object=2' project.godot
           grep -q 'limits/opengl/max_renderable_lights=8' project.godot
-          ! grep -q '^LifelikeRendering=' project.godot
-          ! grep -q '^GrasslandsSanctuary=' project.godot
-          ! grep -q '^PBRHabitat=' project.godot
           godot --headless --editor --path . --import --quit 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-import-emulator.log"
+          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-import-emulator.log"
           godot --headless --verbose --path . --export-release "Android Emulator CI" "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-emulator.log"
+          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-emulator.log"
           test -s "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk"
           mv "$GITHUB_WORKSPACE/build/project.godot.mobile-release" project.godot
       - name: Verify x86_64 emulator package
@@ -186,22 +186,24 @@ jobs:
           retention-days: 7
 
   android16-render-test:
-    name: Render on Android 16 emulator
+    name: Render real Hippo OS frame on Android 16
     needs: build-apks
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: HippoOS-Emulator-CI-APK
           path: apk
+      - name: Install screenshot validator
+        run: python3 -m pip install --user pillow
       - name: Enable KVM access
         shell: bash
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
-      - name: Install launch and prove rendered frame
+      - name: Install launch and prove visible rendered frame
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -209,7 +211,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim -feature -Vulkan
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
           script: |
             set -eu
             adb wait-for-device
@@ -224,20 +226,43 @@ jobs:
             adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb logcat -c
             adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
-            sleep 10
-            adb shell pidof com.sashin.hippoos.personal.ci | tee apk/adb-pid.txt
-            test -s apk/adb-pid.txt
-            adb logcat -d --pid=$(cat apk/adb-pid.txt) > apk/adb-app-logcat.txt
+
+            visible=0
+            for attempt in $(seq 1 18); do
+              sleep 5
+              adb shell pidof com.sashin.hippoos.personal.ci | tee apk/adb-pid.txt
+              test -s apk/adb-pid.txt
+              adb logcat -d --pid=$(cat apk/adb-pid.txt) > apk/adb-app-logcat.txt
+              adb logcat -d -t 1200 > apk/adb-logcat.txt
+              ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt
+              ! grep -Eiq 'Program linking failed|GL_MAX_FRAGMENT_UNIFORM_VECTORS|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/adb-app-logcat.txt
+              adb exec-out screencap -p > apk/launch-attempt.png
+              test -s apk/launch-attempt.png
+
+              if python3 - <<'PY'
+            from PIL import Image, ImageStat
+            image = Image.open('apk/launch-attempt.png').convert('RGB')
+            stat = ImageStat.Stat(image)
+            extrema = image.getextrema()
+            spread = max(high - low for low, high in extrema)
+            deviation = max(stat.stddev)
+            mean = sum(stat.mean) / 3.0
+            print(f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} spread={spread}')
+            if deviation < 8.0 or spread < 30 or mean < 8.0:
+                raise SystemExit(1)
+            PY
+              then
+                cp apk/launch-attempt.png apk/launch.png
+                visible=1
+                echo "Visible Hippo OS frame proven on attempt ${attempt}."
+                break
+              fi
+            done
+
+            test "$visible" -eq 1
             adb shell dumpsys window displays > apk/window-displays.txt
-            sleep 2
-            adb exec-out screencap -p > apk/launch.png
-            test -s apk/launch.png
-            adb logcat -d -t 800 > apk/adb-logcat.txt
             echo "Launch screenshot bytes: $(stat -c%s apk/launch.png)"
             test "$(stat -c%s apk/launch.png)" -ge 30000
-            ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt
-            ! grep -Eiq 'Program linking failed|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/adb-app-logcat.txt
-            ! grep -Eiq 'VK_ERROR_DEVICE_LOST|Couldn.t present to Vulkan queue' apk/adb-logcat.txt
       - name: Upload Android 16 evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -252,24 +277,6 @@ jobs:
             apk/adb-logcat.txt
             apk/window-displays.txt
             apk/launch.png
+            apk/launch-attempt.png
           if-no-files-found: warn
           retention-days: 30
-
-  publish-personal-release:
-    name: Publish verified personal APK
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [build-apks, android16-render-test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: HippoOS-Personal-Release-APK
-          path: build
-      - name: Publish phone-ready APK release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: apk-${{ github.run_number }}
-        shell: bash
-        run: |
-          set -euxo pipefail
-          gh release create "$RELEASE_TAG" build/HippoOS-Personal.apk build/HippoOS.apk.sha256 build/HippoOS.badging.txt build/HippoOS.signature.txt build/HippoOS.zipalign.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Hippo OS 0.2.2 Personal Android APK" --notes "ARM64 phone APK using Godot Mobile/Vulkan and verified 4K sanctuary source art. Android 16 CI separately validates the core project through an x86_64 OpenGL compatibility render path. Final physical-phone visual acceptance remains mandatory before public 1.0."
