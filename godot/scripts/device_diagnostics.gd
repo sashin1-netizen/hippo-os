@@ -130,7 +130,20 @@ func _audio_buses_ready() -> bool:
     return true
 
 func _required_systems_ready() -> bool:
-    var paths: Array[String] = ["/root/SaveMigrator", "/root/AudioDirector", "/root/AudioControls", "/root/BioAcoustics", "/root/AdaptiveSoundscape", "/root/VisualSanctuaryPolish", "/root/CharacterMotionPolish", "/root/AtmospherePolish", "/root/PersonalUsePolish"]
+    # Keep this list intentionally small and authoritative. Diagnostics used to require
+    # retired visual hotfix autoloads, causing a false failure even when the consolidated
+    # production runtime was healthy.
+    var paths: Array[String] = [
+        "/root/SaveMigrator",
+        "/root/AudioDirector",
+        "/root/CompanionRoster",
+        "/root/GameplayDirector",
+        "/root/ProductionAssetLoader",
+        "/root/GrasslandsSanctuary",
+        "/root/SanctuaryHUD",
+        "/root/HeroCameraDirector",
+        "/root/FinalPresentationDirector"
+    ]
     for path: String in paths:
         if get_node_or_null(path) == null:
             return false
