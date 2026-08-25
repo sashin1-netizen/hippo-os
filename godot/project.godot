@@ -37,7 +37,7 @@ CompanionLifeMotion="*res://scripts/companion_life_motion.gd"
 PresentationCleanup="*res://scripts/presentation_cleanup.gd"
 ReferenceFidelityFinish="*res://scripts/reference_fidelity_finish.gd"
 OpenWorldDirector="*res://scripts/open_world_director.gd"
-OpeningVisualAcceptance="*res://scripts/opening_visual_acceptance.gd"
+OpenWorldReferenceFinish="*res://scripts/open_world_reference_finish.gd"
 
 [display]
 
