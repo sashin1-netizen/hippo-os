@@ -76,14 +76,16 @@ func _clear_late_foreground_geometry() -> void:
         return
 
     # PremiumExperience is assembled asynchronously. Re-run this cleanup after it has
-    # finished so the enrichment frame at z~4 cannot sit between camera and Mochi.
+    # finished so enrichment framing and the old fallen log cannot sit between the
+    # camera and Mochi in the default hero view.
     for child in premium.get_children():
         if not (child is GeometryInstance3D and child is Node3D):
             continue
         var visual := child as GeometryInstance3D
         var p := (child as Node3D).position
         var foreground_enrichment := p.z > 2.85 and absf(p.x) < 1.85 and p.y > 0.18 and p.y < 1.95
-        if foreground_enrichment:
+        var fallen_log := absf(p.x - 2.05) < 0.62 and absf(p.z - 0.85) < 0.62 and p.y > 0.10 and p.y < 0.58
+        if foreground_enrichment or fallen_log:
             visual.visible = false
 
 func _clear_late_grass_corridor() -> void:
@@ -114,13 +116,13 @@ func _apply_exposure_finish() -> void:
     var daylight := _daylight_factor()
 
     # Preserve a recognisable night scene while lifting the middle tones that were
-    # almost black in the Android 16 evidence frame. This is a small presentation
-    # finish on top of the existing physically motivated lights, not a flat emissive hack.
+    # almost black in the Android 16 evidence frame. Slightly reduced saturation keeps
+    # procedural foliage/water from looking neon while licensed PBR assets remain rich.
     environment.adjustment_enabled = true
-    environment.adjustment_brightness = lerpf(1.08, 1.18, daylight)
-    environment.adjustment_contrast = lerpf(1.02, 1.05, daylight)
-    environment.adjustment_saturation = lerpf(0.92, 1.04, daylight)
-    environment.ambient_light_energy = maxf(environment.ambient_light_energy, lerpf(1.18, 1.24, daylight))
+    environment.adjustment_brightness = lerpf(1.08, 1.15, daylight)
+    environment.adjustment_contrast = lerpf(1.02, 1.03, daylight)
+    environment.adjustment_saturation = lerpf(0.90, 0.94, daylight)
+    environment.ambient_light_energy = maxf(environment.ambient_light_energy, lerpf(1.18, 1.22, daylight))
 
 func _daylight_factor() -> float:
     var mode := "auto"
