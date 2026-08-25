@@ -186,10 +186,12 @@ makeSpecies({
   file: 'bao',
   name: 'bao_shar_pei',
   identity: 'broad-headed tan Shar-Pei companion',
-  scale: { side: 1.08, up: 0.96, fwd: 0.94 },
+  scale: { side: 1.06, up: 0.96, fwd: 0.94 },
   volumeBoosts: {
-    body: { width: 1.12, height: 1.06 },
-    head: { width: 1.28, height: 1.12 },
+    // Keep the neck/head attachment within the torso acceptance envelope. Facial
+    // breadth comes from a still-wide head, but not at the cost of an exposed open ring.
+    body: { width: 1.18, height: 1.08 },
+    head: { width: 1.08, height: 1.02 },
     LFront: { width: 1.08, height: 1.06 },
     LBack: { width: 1.08, height: 1.06 },
   },
