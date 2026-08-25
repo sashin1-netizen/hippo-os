@@ -136,18 +136,44 @@ for attempt in $(seq 1 18); do
     exit 1
   fi
 
-  # A colourful Android/SystemUI overlay is not evidence that the game rendered.
-  # Require Hippo OS to own the focused window before accepting a frame.
-  adb shell dumpsys window windows | tr -d '\r' > "$EVIDENCE_DIR/window-focus.txt"
-  if ! grep -E "mCurrentFocus|mFocusedApp" "$EVIDENCE_DIR/window-focus.txt" | grep -q "$PACKAGE"; then
-    echo "Hippo OS is not the focused foreground window on attempt ${attempt}; retrying."
+  # Android 16 no longer provides a stable mCurrentFocus/mFocusedApp signal for this
+  # immersive Godot activity. ActivityManager's resumed/top activity is the correct
+  # lifecycle source of truth for whether Hippo OS owns the foreground task.
+  adb shell dumpsys activity activities | tr -d '\r' > "$EVIDENCE_DIR/activity-state.txt"
+  adb shell dumpsys activity top | tr -d '\r' > "$EVIDENCE_DIR/activity-top.txt"
+  resumed_lines="$(grep -E 'topResumedActivity|mResumedActivity|ResumedActivity|ACTIVITY ' "$EVIDENCE_DIR/activity-state.txt" "$EVIDENCE_DIR/activity-top.txt" || true)"
+  printf '%s\n' "$resumed_lines" > "$EVIDENCE_DIR/activity-resumed.txt"
+  if ! grep -q "$PACKAGE" "$EVIDENCE_DIR/activity-resumed.txt"; then
+    echo "Hippo OS is not the resumed foreground activity on attempt ${attempt}; relaunching."
+    adb shell am start -n "$component" >/dev/null 2>&1 || true
     continue
   fi
+
+  # Keep WindowManager evidence for diagnostics, but do not use its deprecated focus
+  # fields as a release gate.
+  adb shell dumpsys window windows | tr -d '\r' > "$EVIDENCE_DIR/window-focus.txt"
 
   adb shell uiautomator dump /sdcard/hippo-window.xml >/dev/null 2>&1 || true
   adb shell cat /sdcard/hippo-window.xml 2>/dev/null | tr -d '\r' > "$EVIDENCE_DIR/window.xml" || true
   if grep -q 'Viewing full screen' "$EVIDENCE_DIR/window.xml"; then
-    echo "Android immersive-mode tutorial still covers Hippo OS on attempt ${attempt}; retrying."
+    echo "Android immersive-mode tutorial still covers Hippo OS on attempt ${attempt}; dismissing."
+    read -r tap_x tap_y < <(python3 - "$EVIDENCE_DIR/window.xml" <<'PY'
+import re
+import sys
+text = open(sys.argv[1], encoding='utf-8', errors='ignore').read()
+match = re.search(r'text="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+if not match:
+    match = re.search(r'content-desc="Got it"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', text)
+if match:
+    x1, y1, x2, y2 = map(int, match.groups())
+    print((x1 + x2) // 2, (y1 + y2) // 2)
+else:
+    print(0, 0)
+PY
+    )
+    if [[ "$tap_x" -gt 0 && "$tap_y" -gt 0 ]]; then
+      adb shell input tap "$tap_x" "$tap_y"
+    fi
     continue
   fi
 
@@ -163,19 +189,20 @@ extrema = image.getextrema()
 spread = max(high - low for low, high in extrema)
 deviation = max(stat.stddev)
 mean = sum(stat.mean) / 3.0
-pixels = image.getdata()
+pixels = list(image.getdata())
 near_white = sum(1 for r, g, b in pixels if r >= 238 and g >= 238 and b >= 238)
+near_black = sum(1 for r, g, b in pixels if r <= 6 and g <= 6 and b <= 6)
 white_fraction = near_white / float(image.width * image.height)
+black_fraction = near_black / float(image.width * image.height)
 print(
     f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} '
-    f'spread={spread} near_white={white_fraction:.4f}'
+    f'spread={spread} near_white={white_fraction:.4f} near_black={black_fraction:.4f}'
 )
 if deviation < 8.0 or spread < 30 or mean < 8.0:
     raise SystemExit(1)
-# System education/dialog surfaces can have excellent contrast and therefore fooled
-# the older pixel-only validator. A clean sanctuary launch must not be dominated by
-# Android's near-white system surface.
-if white_fraction > 0.18:
+# Android education/dialog surfaces can have excellent contrast and otherwise fool a
+# variance-only validator. Likewise a mostly black frame is not a sanctuary render.
+if white_fraction > 0.18 or black_fraction > 0.72:
     raise SystemExit(1)
 PY
   then
