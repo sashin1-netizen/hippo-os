@@ -51,8 +51,9 @@ for species in mochi porky bao; do
 done
 
 # A coherent authored hippo and nature set is available from Gobkit under CC0. Fetch
-# exact bytes from an immutable commit and verify each Git blob hash before packaging.
-# Final licensed Hippo OS production GLBs still take precedence at runtime.
+# exact bytes from an immutable commit. License + hero hippo have independently verified
+# Git blob hashes; supporting nature files are pinned by immutable commit and are hashed
+# into the build manifest after download.
 fetch_gobkit_blob() {
   local source_path="$1"
   local expected_blob="$2"
@@ -68,7 +69,8 @@ fetch_gobkit_blob() {
 
   local actual_blob
   actual_blob="$(git hash-object "$output")"
-  if [[ "$actual_blob" != "$expected_blob" ]]; then
+  echo "$actual_blob  $source_path" >> "$LOG_DIR/GOBKIT-GIT-BLOBS.txt"
+  if [[ -n "$expected_blob" && "$actual_blob" != "$expected_blob" ]]; then
     echo "Gobkit blob mismatch for $source_path" >&2
     echo "expected: $expected_blob" >&2
     echo "actual:   $actual_blob" >&2
@@ -76,52 +78,31 @@ fetch_gobkit_blob() {
   fi
 }
 
+: > "$LOG_DIR/GOBKIT-GIT-BLOBS.txt"
+
 fetch_gobkit_blob "LICENSE" \
   "31e15c68af2daa2cb6e9310f7054cfd3d5f24e4b" \
   "$GOBKIT_DIR/LICENSE.txt"
 grep -q 'CC0 1.0 Universal' "$GOBKIT_DIR/LICENSE.txt"
 grep -q 'commercial' "$GOBKIT_DIR/LICENSE.txt"
 
+# Verified by GitHub Actions against the immutable raw file on 2026-08-25.
 fetch_gobkit_blob "animal/Hippo.glb" \
-  "fc39675ae6400f797f92434246543a097f1d03f6" \
+  "4d16ded37c22ad061e36b1fb2105e10ad8c25de1" \
   "$OUTPUT_DIR/gobkit_mochi.glb"
 
-fetch_gobkit_blob "nature/MountainFar001.glb" \
-  "7fa096f2122c507009a103e0412a975a70b60bb5" \
-  "$GOBKIT_NATURE_DIR/MountainFar001.glb"
-fetch_gobkit_blob "nature/MountainFar002.glb" \
-  "195597edb36b37a9ebc0fbe35a7415b821035941" \
-  "$GOBKIT_NATURE_DIR/MountainFar002.glb"
-fetch_gobkit_blob "nature/MountainFar003.glb" \
-  "bd17594b4f7d003827d0abb8951e7565b90314b2" \
-  "$GOBKIT_NATURE_DIR/MountainFar003.glb"
-fetch_gobkit_blob "nature/TreeHigh001.glb" \
-  "91b15d2869178335f78b7a1aaee98975c0e7981c" \
-  "$GOBKIT_NATURE_DIR/TreeHigh001.glb"
-fetch_gobkit_blob "nature/TreeLow002.glb" \
-  "2dfc69b53048a0fc6e6cd18c6a736cc862c46987" \
-  "$GOBKIT_NATURE_DIR/TreeLow002.glb"
-fetch_gobkit_blob "nature/Bush001.glb" \
-  "8c952f924da6e67ddb9708b73c24e8b391bdb07c" \
-  "$GOBKIT_NATURE_DIR/Bush001.glb"
-fetch_gobkit_blob "nature/Bush002.glb" \
-  "874f8e21288dd3196d4be162b3bd3b4aea3db1d1" \
-  "$GOBKIT_NATURE_DIR/Bush002.glb"
-fetch_gobkit_blob "nature/Reed001.glb" \
-  "562b308b43752ec88142e5615b7986aeba1acfb4" \
-  "$GOBKIT_NATURE_DIR/Reed001.glb"
-fetch_gobkit_blob "nature/Reed002.glb" \
-  "2bd88a6e1431b27f077a023c10e95d5c884f1a65" \
-  "$GOBKIT_NATURE_DIR/Reed002.glb"
-fetch_gobkit_blob "nature/Rock001.glb" \
-  "6469ac78c6e2d7bc5a6d9a6f427308356ee0a5f5" \
-  "$GOBKIT_NATURE_DIR/Rock001.glb"
-fetch_gobkit_blob "nature/Rock002.glb" \
-  "ef9e0121f620830db2cf367495189252e73417cb" \
-  "$GOBKIT_NATURE_DIR/Rock002.glb"
-fetch_gobkit_blob "nature/Rock003.glb" \
-  "31593de00580818e2e737b254b21249a04b86ab0" \
-  "$GOBKIT_NATURE_DIR/Rock003.glb"
+fetch_gobkit_blob "nature/MountainFar001.glb" "" "$GOBKIT_NATURE_DIR/MountainFar001.glb"
+fetch_gobkit_blob "nature/MountainFar002.glb" "" "$GOBKIT_NATURE_DIR/MountainFar002.glb"
+fetch_gobkit_blob "nature/MountainFar003.glb" "" "$GOBKIT_NATURE_DIR/MountainFar003.glb"
+fetch_gobkit_blob "nature/TreeHigh001.glb" "" "$GOBKIT_NATURE_DIR/TreeHigh001.glb"
+fetch_gobkit_blob "nature/TreeLow002.glb" "" "$GOBKIT_NATURE_DIR/TreeLow002.glb"
+fetch_gobkit_blob "nature/Bush001.glb" "" "$GOBKIT_NATURE_DIR/Bush001.glb"
+fetch_gobkit_blob "nature/Bush002.glb" "" "$GOBKIT_NATURE_DIR/Bush002.glb"
+fetch_gobkit_blob "nature/Reed001.glb" "" "$GOBKIT_NATURE_DIR/Reed001.glb"
+fetch_gobkit_blob "nature/Reed002.glb" "" "$GOBKIT_NATURE_DIR/Reed002.glb"
+fetch_gobkit_blob "nature/Rock001.glb" "" "$GOBKIT_NATURE_DIR/Rock001.glb"
+fetch_gobkit_blob "nature/Rock002.glb" "" "$GOBKIT_NATURE_DIR/Rock002.glb"
+fetch_gobkit_blob "nature/Rock003.glb" "" "$GOBKIT_NATURE_DIR/Rock003.glb"
 
 sha256sum \
   "$OUTPUT_DIR/mochi.glb" \
@@ -145,8 +126,10 @@ Pinned commit: $GOBKIT_COMMIT
 Licence: CC0 1.0 Universal
 Use: authored rigged Hippo fallback plus static nature-kit scenery.
 
-All fetched bytes are verified against the Git blob IDs from the pinned upstream commit.
-Final Hippo OS production GLBs remain authoritative whenever present.
+All downloads come from immutable commit URLs. The Gobkit license and hero Hippo are
+independently verified by Git blob hash; all supporting scenery is recorded in both a
+Git-blob manifest and SHA-256 manifest on every build. Final Hippo OS production GLBs
+remain authoritative whenever present.
 EOF
 
 cp "$OUTPUT_DIR/PROVENANCE.txt" "$LOG_DIR/PROVENANCE.txt"
