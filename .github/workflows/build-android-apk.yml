@@ -91,7 +91,7 @@ jobs:
           test -s assets/habitat/pbr/rocks_ground_08_rough_4k.jpg
           grep -q 'renderer/rendering_method="mobile"' project.godot
           grep -q 'rendering_device/fallback_to_opengl3=true' project.godot
-          grep -q 'FinalPresentationDirector="*res://scripts/final_presentation_director.gd"' project.godot
+          grep -Fq 'FinalPresentationDirector="*res://scripts/final_presentation_director.gd"' project.godot
           grep -q '^name="Android"$' export_presets.cfg
           grep -q '^name="Android Emulator CI"$' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
