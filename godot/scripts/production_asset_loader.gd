@@ -4,11 +4,34 @@ extends Node
 # The simulation/collision bodies stay stable while final rigged GLBs replace only
 # procedural visuals. Behaviour, saving, audio emitters and interaction logic remain
 # authoritative, and this bridge translates live actions into authored animation clips.
+#
+# Final authored GLBs always win. When they are absent, CI/personal builds may provide
+# original community-generated rigged GLBs under assets/animals/community. Those are a
+# coherent interim fallback only; the public production gate still requires the final
+# licensed 4K-PBR Mochi/Porky/Bao deliveries.
 
 const MODEL_PATHS := {
     "hippo": "res://assets/animals/mochi.glb",
     "pig": "res://assets/animals/porky.glb",
     "dog": "res://assets/animals/bao.glb",
+}
+
+const COMMUNITY_MODEL_PATHS := {
+    "hippo": "res://assets/animals/community/mochi.glb",
+    "pig": "res://assets/animals/community/porky.glb",
+    "dog": "res://assets/animals/community/bao.glb",
+}
+
+const COMMUNITY_VISUAL_SCALE := {
+    "hippo": 0.92,
+    "pig": 0.75,
+    "dog": 0.70,
+}
+
+const COMMUNITY_VISUAL_Y_OFFSET := {
+    "hippo": -0.78,
+    "pig": -0.70,
+    "dog": -0.73,
 }
 
 const BODY_NAMES := {
@@ -19,8 +42,8 @@ const BODY_NAMES := {
 
 const ANIMATION_ALIASES := {
     "idle": ["idle", "Idle", "idle_01", "Idle_01", "stand_idle", "Standing Idle", "standing_idle"],
-    "walk": ["walk", "Walk", "walking", "Walking", "walk_cycle", "Walk Cycle"],
-    "run": ["run", "Run", "running", "Running", "run_cycle", "Run Cycle"],
+    "walk": ["walk", "Walk", "walking", "Walking", "walk_cycle", "Walk Cycle", "move", "Move", "locomotion"],
+    "run": ["run", "Run", "running", "Running", "run_cycle", "Run Cycle", "move", "Move", "locomotion"],
     "sleep": ["sleep", "Sleep", "sleeping", "Sleeping", "lay", "lying"],
     "wake": ["wake", "Wake", "wake_up", "Wake Up", "stand_up"],
     "eat": ["eat", "Eat", "eating", "Eating", "chew", "feeding"],
@@ -32,11 +55,12 @@ const ANIMATION_ALIASES := {
     "mud": ["mud", "Mud", "mud_play", "Mud Play", "roll"],
     "water_play": ["water_play", "Water Play", "swim", "Swimming", "splash"],
     "yawn": ["yawn", "Yawn"],
-    "zoomies": ["zoomies", "Zoomies", "sprint", "Sprint", "run", "Run"],
+    "zoomies": ["zoomies", "Zoomies", "sprint", "Sprint", "run", "Run", "move", "Move"],
 }
 
 var scene_root: Node3D
 var installed_models: Dictionary = {}
+var installed_model_sources: Dictionary = {}
 var animation_players: Dictionary = {}
 var active_animation_keys: Dictionary = {}
 var animation_sync_timer := 0.0
@@ -60,12 +84,12 @@ func _bind_when_ready() -> void:
         push_warning("ProductionAssetLoader could not bind to companion bodies")
         return
 
-    # Let fallback anatomy/material polish settle first. A production GLB is then
-    # mounted afterwards so its authored PBR materials are never overwritten.
+    # Let fallback anatomy/material polish settle first. An authored or generated GLB is
+    # mounted afterwards so its own materials are never overwritten by primitive polish.
     for _frame in range(4):
         await get_tree().process_frame
 
-    for species in MODEL_PATHS.keys():
+    for species in BODY_NAMES.keys():
         _install_if_available(String(species))
 
     if not installed_models.is_empty():
@@ -91,6 +115,10 @@ func _all_bodies_present() -> bool:
 
 func _install_if_available(species: String) -> void:
     var model_path := String(MODEL_PATHS.get(species, ""))
+    var community_generated := false
+    if model_path.is_empty() or not ResourceLoader.exists(model_path):
+        model_path = String(COMMUNITY_MODEL_PATHS.get(species, ""))
+        community_generated = not model_path.is_empty() and ResourceLoader.exists(model_path)
     if model_path.is_empty() or not ResourceLoader.exists(model_path):
         return
 
@@ -101,19 +129,21 @@ func _install_if_available(species: String) -> void:
 
     var resource: Resource = load(model_path)
     if not resource is PackedScene:
-        push_warning("Production model is not an importable PackedScene: %s" % model_path)
+        push_warning("Animal model is not an importable PackedScene: %s" % model_path)
         return
 
     var packed := resource as PackedScene
     var visual := packed.instantiate() as Node3D
     if visual == null:
-        push_warning("Production model could not instantiate: %s" % model_path)
+        push_warning("Animal model could not instantiate: %s" % model_path)
         return
 
-    visual.name = "ProductionVisual"
+    visual.name = "CommunityRiggedVisual" if community_generated else "ProductionVisual"
     visual.set_meta("hippo_os_production_visual", true)
+    visual.set_meta("hippo_os_community_generated", community_generated)
+    visual.set_meta("hippo_os_model_path", model_path)
     body.add_child(visual)
-    _normalize_visual_transform(visual, species)
+    _normalize_visual_transform(visual, species, community_generated)
     _hide_procedural_visuals(body, visual)
 
     var player := _find_animation_player(visual)
@@ -122,11 +152,24 @@ func _install_if_available(species: String) -> void:
         _play_animation_key(species, "idle", true)
 
     installed_models[species] = visual
+    installed_model_sources[species] = "community" if community_generated else "production"
+    print("HippoOS animal visual installed: %s <- %s" % [species, installed_model_sources[species]])
 
-func _normalize_visual_transform(visual: Node3D, _species: String) -> void:
+func _normalize_visual_transform(visual: Node3D, species: String, community_generated: bool) -> void:
     visual.position = Vector3.ZERO
     visual.rotation = Vector3.ZERO
     visual.scale = Vector3.ONE
+    if not community_generated:
+        return
+
+    # anyCreature authors its validated quadruped along +Z with the origin at ground
+    # level, while Hippo OS simulation bodies face +X and are centered above ground.
+    # Adapt only generated fallbacks here; final authored assets keep the production
+    # contract's native transform unchanged.
+    visual.rotation.y = deg_to_rad(90.0)
+    var visual_scale := float(COMMUNITY_VISUAL_SCALE.get(species, 0.8))
+    visual.scale = Vector3.ONE * visual_scale
+    visual.position.y = float(COMMUNITY_VISUAL_Y_OFFSET.get(species, -0.72))
 
 func _hide_procedural_visuals(body: Node3D, production_visual: Node3D) -> void:
     for child in body.get_children():
@@ -246,3 +289,6 @@ func _find_animation_player(root: Node) -> AnimationPlayer:
 
 func has_production_model(species: String) -> bool:
     return installed_models.has(species) and is_instance_valid(installed_models[species])
+
+func is_final_production_model(species: String) -> bool:
+    return has_production_model(species) and String(installed_model_sources.get(species, "")) == "production"
