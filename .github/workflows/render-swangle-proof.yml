@@ -1,0 +1,74 @@
+name: Android 16 Swangle Visual Proof
+
+on:
+  push:
+    branches:
+      - polish/4k-lifelike-animals
+    paths:
+      - .github/workflows/render-swangle-proof.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  render-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download validated emulator APK from current build
+        uses: actions/download-artifact@v4
+        with:
+          name: HippoOS-Emulator-CI-APK
+          path: apk
+          repository: sashin1-netizen/hippo-os
+          run-id: 32792493975
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Launch exact APK on Android 16 with Swangle
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -eu
+            adb wait-for-device
+            adb shell getprop ro.build.version.release | grep -q '^16$'
+            adb shell getprop ro.build.version.sdk | grep -q '^36$'
+            adb install -r apk/HippoOS-Emulator-CI.apk | tee apk/swangle-install.txt
+            grep -q '^Success$' apk/swangle-install.txt
+            adb logcat -c
+            adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
+            sleep 12
+            adb shell pidof com.sashin.hippoos.personal.ci | tee apk/swangle-pid.txt
+            test -s apk/swangle-pid.txt
+            adb logcat -d --pid=$(cat apk/swangle-pid.txt) > apk/swangle-app-logcat.txt
+            adb exec-out screencap -p > apk/swangle-launch.png
+            test -s apk/swangle-launch.png
+            echo "Swangle launch screenshot bytes: $(stat -c%s apk/swangle-launch.png)"
+            ! grep -Eiq 'Program linking failed|GL_MAX_FRAGMENT_UNIFORM_VECTORS|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/swangle-app-logcat.txt
+            test "$(stat -c%s apk/swangle-launch.png)" -ge 30000
+
+      - name: Upload visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Android16-Swangle-Visual-Proof
+          path: |
+            apk/swangle-install.txt
+            apk/swangle-pid.txt
+            apk/swangle-app-logcat.txt
+            apk/swangle-launch.png
+          if-no-files-found: warn
+          retention-days: 30
