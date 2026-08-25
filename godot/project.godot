@@ -40,6 +40,7 @@ OpenWorldDirector="*res://scripts/open_world_director.gd"
 OpenWorldReferenceFinish="*res://scripts/open_world_reference_finish.gd"
 EarlyReferenceGate="*res://scripts/early_reference_gate.gd"
 CompatibilityMobileFallback="*res://scripts/compatibility_mobile_fallback.gd"
+CommunityShowcaseAuthority="*res://scripts/community_showcase_authority.gd"
 
 [display]
 
