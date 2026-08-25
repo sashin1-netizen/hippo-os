@@ -58,3 +58,9 @@ sha1sum "$AUDIO_DIR"/*.ogg
 
 # Habitat maps are also build-time only and are packaged into the offline APK.
 bash "$ROOT/.github/scripts/fetch-habitat-assets.sh" "$ROOT"
+
+# When final licensed production GLBs are not committed yet, replace the old disconnected
+# primitive animals with reproducible original rigged quadrupeds. The generator is pinned
+# to an exact upstream MIT commit and its mechanical checks must pass before the APK build
+# continues. Final assets at assets/animals/{mochi,porky,bao}.glb remain authoritative.
+bash "$ROOT/.github/scripts/build-community-animal-assets.sh" "$ROOT"
