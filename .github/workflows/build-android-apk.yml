@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['godot/**', '.github/test-signing/**', '.github/scripts/**', '.github/workflows/build-android-apk.yml', '.github/workflows/build-play-aab.yml']
+    paths: ['godot/**', '.github/test-signing/**', '.github/scripts/**', '.github/visual/**', '.github/workflows/build-android-apk.yml', '.github/workflows/build-play-aab.yml']
   pull_request:
     branches: [main]
-    paths: ['godot/**', '.github/test-signing/**', '.github/scripts/**', '.github/workflows/build-android-apk.yml', '.github/workflows/build-play-aab.yml']
+    paths: ['godot/**', '.github/test-signing/**', '.github/scripts/**', '.github/visual/**', '.github/workflows/build-android-apk.yml', '.github/workflows/build-play-aab.yml']
 
 permissions:
   contents: read
@@ -78,10 +78,11 @@ jobs:
           test -f project.godot
           test -f export_presets.cfg
           test -f scripts/production_asset_loader.gd
-          test -f scripts/lifelike_rendering.gd
+          test -f scripts/final_presentation_director.gd
           test -f scripts/grasslands_sanctuary.gd
           test -f scripts/pbr_habitat.gd
-          test -f scripts/cinematic_quality.gd
+          test -f ../.github/scripts/visual-regression-gate.py
+          test -f ../.github/visual/grasslands-reference-profile.json
           test -s assets/habitat/pbr/forrest_ground_01_diff_4k.jpg
           test -s assets/habitat/pbr/forrest_ground_01_nor_gl_4k.jpg
           test -s assets/habitat/pbr/forrest_ground_01_rough_4k.jpg
@@ -90,6 +91,7 @@ jobs:
           test -s assets/habitat/pbr/rocks_ground_08_rough_4k.jpg
           grep -q 'renderer/rendering_method="mobile"' project.godot
           grep -q 'rendering_device/fallback_to_opengl3=true' project.godot
+          grep -q 'FinalPresentationDirector="*res://scripts/final_presentation_director.gd"' project.godot
           grep -q '^name="Android"$' export_presets.cfg
           grep -q '^name="Android Emulator CI"$' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
@@ -98,6 +100,8 @@ jobs:
           grep -q 'command_line/extra_args="--rendering-method gl_compatibility --rendering-driver opengl3"' export_presets.cfg
           bash -n ../.github/scripts/verify-production-release.sh
           bash -n ../.github/scripts/android16-render-proof.sh
+          python3 -m py_compile ../.github/scripts/visual-regression-gate.py
+          python3 -m json.tool ../.github/visual/grasslands-reference-profile.json >/dev/null
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import.log
           godot --headless --path . --quit-after 3 2>&1 | tee ../build/godot-smoke.log
@@ -189,7 +193,7 @@ jobs:
           retention-days: 7
 
   android16-render-test:
-    name: Render real Hippo OS frame on Android 16
+    name: Render authoritative Hippo OS frame on Android 16
     needs: build-apks
     runs-on: ubuntu-latest
     timeout-minutes: 40
@@ -207,7 +211,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
-      - name: Install launch and prove visible rendered frame
+      - name: Install, wait for authority, and prove visual regression
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -234,6 +238,8 @@ jobs:
             apk/adb-pid.txt
             apk/adb-app-logcat.txt
             apk/adb-logcat.txt
+            apk/authoritative-frame-marker.txt
+            apk/visual-regression.json
             apk/window-displays.txt
             apk/launch.png
             apk/launch-attempt.png
