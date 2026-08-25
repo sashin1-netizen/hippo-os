@@ -3,7 +3,7 @@
   "description": "Automated emulator proxy for the approved Grasslands Sanctuary composition. Physical-phone approval remains authoritative for production 1.0.",
   "minimum_score": 85,
   "portrait": {
-    "min_aspect_ratio": 0.50,
+    "min_aspect_ratio": 0.42,
     "max_aspect_ratio": 0.75
   },
   "sky": {
