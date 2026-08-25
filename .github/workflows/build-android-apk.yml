@@ -92,6 +92,8 @@ jobs:
           grep -q 'rendering_device/fallback_to_opengl3=true' project.godot
           grep -q '^name="Android"$' export_presets.cfg
           grep -q '^name="Android Emulator CI"$' export_presets.cfg
+          grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
+          grep -q 'version/code=104' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos.personal.ci"' export_presets.cfg
           grep -q 'command_line/extra_args="--rendering-method gl_compatibility --rendering-driver opengl3"' export_presets.cfg
           bash -n ../.github/scripts/verify-production-release.sh
@@ -113,9 +115,9 @@ jobs:
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
           "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS.badging.txt 2> build/HippoOS.badging.stderr.txt || true
-          grep -q "package: name='com.sashin.hippoos.personal'" build/HippoOS.badging.txt
+          grep -q "package: name='com.sashin.hippoos'" build/HippoOS.badging.txt
           grep -q "targetSdkVersion:'36'" build/HippoOS.badging.txt
-          grep -q "versionCode='4'" build/HippoOS.badging.txt
+          grep -q "versionCode='104'" build/HippoOS.badging.txt
           unzip -l "$APK" | tee build/HippoOS.contents.txt
           grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS.contents.txt
           ! grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS.contents.txt
@@ -216,8 +218,10 @@ jobs:
             set -euo pipefail
             PACKAGE=com.sashin.hippoos.personal.ci
             adb wait-for-device
-            adb shell getprop ro.build.version.release | tr -d '\r' | grep -q '^16$'
-            adb shell getprop ro.build.version.sdk | tr -d '\r' | grep -q '^36$'
+            android_release="$(adb shell getprop ro.build.version.release | tr -d '\r')"
+            android_sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+            test "$android_release" = '16'
+            test "$android_sdk" = '36'
 
             # CI runs on a disposable emulator. Remove any stale test package so the
             # registration/launch proof always starts from a known PackageManager state.
