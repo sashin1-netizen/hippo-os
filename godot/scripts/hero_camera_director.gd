@@ -1,8 +1,8 @@
 extends Node
 
-# Cinematic wildlife camera. Portrait mode deliberately places the selected companion
-# below visual centre so sky, acacia silhouettes and distant ridges remain visible,
-# matching the approved full-screen sanctuary composition.
+# Cinematic wildlife camera. Portrait mode deliberately keeps the selected companion
+# below visual centre while preserving enough distance for a full-body hero read,
+# foreground water and environmental depth.
 
 var scene_root: Node3D
 var roster: Node
@@ -51,35 +51,35 @@ func _process(delta: float) -> void:
 
     var viewport := get_viewport().get_visible_rect().size
     var portrait := viewport.y >= viewport.x
-    var desired_pivot := selected.global_position + Vector3(0.0, 0.64, 0.0)
+    var desired_pivot := selected.global_position + Vector3(0.0, 0.48, 0.0)
     if not initialized:
         smoothed_pivot = desired_pivot
         initialized = true
     else:
-        smoothed_pivot = smoothed_pivot.lerp(desired_pivot, clampf(delta * 4.8, 0.0, 1.0))
+        smoothed_pivot = smoothed_pivot.lerp(desired_pivot, clampf(delta * 4.2, 0.0, 1.0))
 
     var yaw := float(scene_root.get("orbit_yaw"))
-    var pitch := clampf(float(scene_root.get("orbit_pitch")), -0.38, 0.14)
+    var pitch := clampf(float(scene_root.get("orbit_pitch")), -0.34, 0.10)
     var requested_distance := float(scene_root.get("orbit_distance"))
-    var min_distance := 5.8 if portrait else 4.9
-    var max_distance := 8.2 if portrait else 7.5
+    var min_distance := 8.5 if portrait else 6.2
+    var max_distance := 10.8 if portrait else 8.8
     var distance := clampf(requested_distance, min_distance, max_distance)
     if portrait:
-        distance = maxf(distance, 6.3)
+        distance = maxf(distance, 9.0)
 
     var horizontal := cos(pitch) * distance
-    var camera_height := 0.46 if portrait else 0.30
+    var camera_height := 0.64 if portrait else 0.42
     var desired_camera := smoothed_pivot + Vector3(
         sin(yaw) * horizontal,
         -sin(pitch) * distance + camera_height,
         cos(yaw) * horizontal
     )
 
-    camera.global_position = camera.global_position.lerp(desired_camera, clampf(delta * 5.8, 0.0, 1.0))
-    var upward_composition := 0.42 if portrait else 0.12
+    camera.global_position = camera.global_position.lerp(desired_camera, clampf(delta * 5.2, 0.0, 1.0))
+    var upward_composition := 0.20 if portrait else 0.08
     camera.look_at(smoothed_pivot + Vector3(0.0, upward_composition, 0.0), Vector3.UP)
-    var target_fov := 49.0 if portrait else 42.0
-    camera.fov = lerpf(camera.fov, target_fov, clampf(delta * 3.8, 0.0, 1.0))
+    var target_fov := 52.0 if portrait else 45.0
+    camera.fov = lerpf(camera.fov, target_fov, clampf(delta * 3.6, 0.0, 1.0))
 
 func _selected_node() -> Node3D:
     var companions_variant: Variant = roster.get("companions")
