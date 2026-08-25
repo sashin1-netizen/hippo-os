@@ -29,6 +29,7 @@ CompanionLifeMotion="*res://scripts/companion_life_motion.gd"
 OpenWorldDirector="*res://scripts/open_world_director.gd"
 CompatibilityMobileFallback="*res://scripts/compatibility_mobile_fallback.gd"
 FinalPresentationDirector="*res://scripts/final_presentation_director.gd"
+CompatibilityRenderGuard="*res://scripts/compatibility_render_guard.gd"
 
 [display]
 
