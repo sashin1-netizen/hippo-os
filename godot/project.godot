@@ -34,6 +34,7 @@ AppCompleteness="*res://scripts/app_completeness.gd"
 PBRHabitat="*res://scripts/pbr_habitat.gd"
 CinematicQuality="*res://scripts/cinematic_quality.gd"
 PhoneVisualHotfix="*res://scripts/phone_visual_hotfix.gd"
+ProductionQualityPass="*res://scripts/production_quality_pass.gd"
 
 [display]
 
