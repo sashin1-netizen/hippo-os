@@ -9,6 +9,7 @@ const HERO_HOME := Vector3(1.15, 0.80, 1.55)
 const PIG_HOME := Vector3(-3.65, 0.72, 3.20)
 const DOG_HOME := Vector3(-3.85, 0.75, -2.65)
 const OPENING_HOLD_SECONDS := 24.0
+const COMPATIBILITY_PROOF_HOLD_SECONDS := 180.0
 const PINCH_SCALE := 0.012
 const PRESENTATION_DISTANCE := 7.85
 const PRESENTATION_PITCH := -0.085
@@ -70,7 +71,8 @@ func _bind() -> void:
     scene_root.set_meta("presentation_max_distance_portrait", 10.8)
     scene_root.set_meta("presentation_target_fov_portrait", 46.0)
 
-    hold_until = Time.get_ticks_msec() / 1000.0 + OPENING_HOLD_SECONDS
+    var hold_seconds := COMPATIBILITY_PROOF_HOLD_SECONDS if _is_compatibility_renderer() else OPENING_HOLD_SECONDS
+    hold_until = Time.get_ticks_msec() / 1000.0 + hold_seconds
     _apply_presentation(1.0)
     initialized = true
     readiness_debug_timer = 0.0
@@ -359,12 +361,24 @@ func _authoritative_world_ready() -> bool:
 func _camera_frames_hero() -> bool:
     if camera == null or hippo == null or not camera.current:
         return false
-    var to_hero := hippo.global_position - camera.global_position
+    var hero_focus := hippo.global_position + Vector3(0.0, 0.44, 0.0)
+    if camera.is_position_behind(hero_focus):
+        return false
+    var to_hero := hero_focus - camera.global_position
     var distance := to_hero.length()
     if distance < 4.0 or distance > 16.0:
         return false
     var forward := -camera.global_transform.basis.z.normalized()
-    return forward.dot(to_hero.normalized()) >= 0.72
+    if forward.dot(to_hero.normalized()) < 0.72:
+        return false
+
+    var viewport_size := get_viewport().get_visible_rect().size
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+        return false
+    var hero_screen := camera.unproject_position(hero_focus)
+    var normalized_x := hero_screen.x / viewport_size.x
+    var normalized_y := hero_screen.y / viewport_size.y
+    return normalized_x >= 0.18 and normalized_x <= 0.82 and normalized_y >= 0.18 and normalized_y <= 0.80
 
 func _visible_mesh_count(root: Node3D) -> int:
     if root == null:
