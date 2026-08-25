@@ -152,7 +152,7 @@ void vertex() {
     VERTEX.y += w1 + w2;
 }
 void fragment() {
-    float ripple = sin((WORLD_MATRIX[3].x + VERTEX.x) * 2.2 + TIME * 0.9) * 0.5 + 0.5;
+    float ripple = sin(VERTEX.x * 2.2 + TIME * 0.9) * 0.5 + 0.5;
     ALBEDO = mix(vec3(0.075, 0.19, 0.22), vec3(0.16, 0.34, 0.35), ripple * 0.22);
     ROUGHNESS = 0.18;
     METALLIC = 0.08;
