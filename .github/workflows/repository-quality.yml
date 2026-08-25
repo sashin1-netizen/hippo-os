@@ -51,6 +51,10 @@ jobs:
           grep -q '^\*.uasset filter=lfs' .gitattributes
           grep -q '^\*.umap filter=lfs' .gitattributes
 
+      - name: Validate Hippo OS architecture contract
+        shell: bash
+        run: bash .github/scripts/verify-architecture-contract.sh "$GITHUB_WORKSPACE"
+
       - name: Validate Hippo OS gameplay candidate contract
         shell: bash
         run: bash .github/scripts/verify-gameplay-candidate.sh "$GITHUB_WORKSPACE"
