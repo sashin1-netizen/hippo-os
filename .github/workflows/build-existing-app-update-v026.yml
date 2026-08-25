@@ -171,7 +171,23 @@ jobs:
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/arm64-signature.txt
           sha256sum "$APK" | tee build/HippoOS-v0.2.6-UPDATE.sha256
 
-      - name: Export x86_64 PackageManager twin through same Gradle path
+      - name: Reset Gradle template for x86_64 install twin
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          rm -rf android
+          TEMPLATE="$HOME/.local/share/godot/export_templates/$GODOT_TEMPLATE_VERSION/android_source.zip"
+          test -s "$TEMPLATE"
+          mkdir -p android/build
+          unzip -q "$TEMPLATE" -d android/build
+          printf '%s\n' "$GODOT_TEMPLATE_VERSION" > android/.build_version
+          test -x android/build/gradlew
+          test -f android/build/build.gradle
+          test -f android/build/config.gradle
+          test -f android/build/settings.gradle
+
+      - name: Export x86_64 PackageManager twin through fresh Gradle path
         shell: bash
         working-directory: godot
         run: |
@@ -182,6 +198,22 @@ jobs:
             2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-x86.log"
           test -s "$GITHUB_WORKSPACE/build/HippoOS-v0.2.6-INSTALL-CI.apk"
           ! grep -Eiq 'Starting legacy build system|SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-x86.log"
+
+      - name: Upload v0.2.6 build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-v0.2.6-BUILD-DIAGNOSTICS
+          path: |
+            build/godot-import.log
+            build/godot-export-arm64.log
+            build/godot-export-x86.log
+            build/arm64-badging.txt
+            build/arm64-badging.stderr.txt
+            build/arm64-signature.txt
+            build/arm64-zipalign.txt
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify install twin metadata signing and layout
         shell: bash
