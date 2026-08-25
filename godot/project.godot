@@ -39,6 +39,7 @@ PresentationCleanup="*res://scripts/presentation_cleanup.gd"
 ReferenceFidelityFinish="*res://scripts/reference_fidelity_finish.gd"
 OpenWorldDirector="*res://scripts/open_world_director.gd"
 OpenWorldFinalFinish="*res://scripts/open_world_final_finish.gd"
+CleanSanctuaryStage="*res://scripts/clean_sanctuary_stage.gd"
 
 [display]
 
