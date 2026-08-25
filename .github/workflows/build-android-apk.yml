@@ -213,22 +213,55 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
           script: |
-            set -eu
+            set -euo pipefail
             PACKAGE=com.sashin.hippoos.personal.ci
-            ACTIVITY=com.godot.game.GodotAppLauncher
             adb wait-for-device
-            adb shell getprop ro.build.version.release | grep -q '^16$'
-            adb shell getprop ro.build.version.sdk | grep -q '^36$'
-            adb install -r apk/HippoOS-Emulator-CI.apk | tee apk/adb-install.txt
+            adb shell getprop ro.build.version.release | tr -d '\r' | grep -q '^16$'
+            adb shell getprop ro.build.version.sdk | tr -d '\r' | grep -q '^36$'
+
+            # CI runs on a disposable emulator. Remove any stale test package so the
+            # registration/launch proof always starts from a known PackageManager state.
+            adb uninstall "$PACKAGE" > apk/adb-uninstall.txt 2>&1 || true
+            adb install --no-streaming -r apk/HippoOS-Emulator-CI.apk | tee apk/adb-install.txt
             grep -q '^Success$' apk/adb-install.txt
-            adb shell pm path "$PACKAGE" | tee apk/adb-package-path.txt
-            adb shell dumpsys package "$PACKAGE" | tee apk/adb-package.txt
+
+            registered=0
+            for attempt in $(seq 1 45); do
+              adb shell pm list packages | tr -d '\r' > apk/adb-package-list.txt
+              if grep -Fxq "package:$PACKAGE" apk/adb-package-list.txt; then
+                registered=1
+                echo "PackageManager registered Hippo OS on attempt ${attempt}."
+                break
+              fi
+              sleep 1
+            done
+            test "$registered" -eq 1
+
+            package_path="$(adb shell pm path "$PACKAGE" | tr -d '\r')"
+            printf '%s\n' "$package_path" | tee apk/adb-package-path.txt
+            test -n "$package_path"
+            grep -q '^package:' apk/adb-package-path.txt
+
+            adb shell dumpsys package "$PACKAGE" > apk/adb-package.txt
             grep -q 'versionCode=4' apk/adb-package.txt
             grep -q 'targetSdk=36' apk/adb-package.txt
+
+            component=''
+            for attempt in $(seq 1 30); do
+              component="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$PACKAGE" 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
+              if [[ "$component" == "$PACKAGE/"* ]]; then
+                echo "Resolved launcher component on attempt ${attempt}: $component"
+                break
+              fi
+              sleep 1
+            done
+            printf '%s\n' "$component" | tee apk/adb-launch-component.txt
+            [[ "$component" == "$PACKAGE/"* ]]
+
             adb shell settings put secure immersive_mode_confirmations confirmed || true
             adb logcat -c
             adb shell am force-stop "$PACKAGE" || true
-            adb shell am start -W -n "$PACKAGE/$ACTIVITY" | tee apk/adb-launch.txt
+            adb shell am start -W -n "$component" | tee apk/adb-launch.txt
             grep -q 'Status: ok' apk/adb-launch.txt
 
             visible=0
@@ -283,9 +316,12 @@ jobs:
         with:
           name: HippoOS-Android16-Render-Evidence
           path: |
+            apk/adb-uninstall.txt
             apk/adb-install.txt
+            apk/adb-package-list.txt
             apk/adb-package-path.txt
             apk/adb-package.txt
+            apk/adb-launch-component.txt
             apk/adb-launch.txt
             apk/adb-pid.txt
             apk/adb-app-logcat.txt
