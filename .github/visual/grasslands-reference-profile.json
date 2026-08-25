@@ -1,0 +1,46 @@
+{
+  "reference_id": "grasslands-sanctuary-v1",
+  "description": "Automated emulator proxy for the approved Grasslands Sanctuary composition. Physical-phone approval remains authoritative for production 1.0.",
+  "minimum_score": 85,
+  "portrait": {
+    "min_aspect_ratio": 0.50,
+    "max_aspect_ratio": 0.75
+  },
+  "sky": {
+    "region": [0.12, 0.08, 0.88, 0.34],
+    "minimum_mean_luma": 75,
+    "minimum_blue_dominance": 8,
+    "minimum_saturation": 0.16,
+    "weight": 20
+  },
+  "world": {
+    "region": [0.08, 0.38, 0.92, 0.90],
+    "minimum_stddev": 20,
+    "maximum_black_fraction": 0.28,
+    "minimum_natural_color_fraction": 0.12,
+    "minimum_edge_density": 0.035,
+    "weight": 20
+  },
+  "hero": {
+    "region": [0.22, 0.28, 0.78, 0.74],
+    "minimum_stddev": 22,
+    "minimum_edge_density": 0.045,
+    "minimum_foreground_fraction": 0.035,
+    "maximum_foreground_fraction": 0.62,
+    "weight": 25
+  },
+  "hud": {
+    "top_left_region": [0.00, 0.00, 0.42, 0.22],
+    "right_rail_region": [0.78, 0.34, 1.00, 0.78],
+    "bottom_region": [0.02, 0.86, 0.98, 1.00],
+    "minimum_region_stddev": 12,
+    "weight": 15
+  },
+  "prototype_rejection": {
+    "maximum_near_black_fraction": 0.45,
+    "maximum_near_white_fraction": 0.18,
+    "maximum_flat_green_fraction": 0.42,
+    "maximum_flat_cyan_fraction": 0.30,
+    "weight": 20
+  }
+}
