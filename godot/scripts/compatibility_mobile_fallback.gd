@@ -161,15 +161,16 @@ func _build_safe_sun() -> void:
 func _build_gobkit_landscape() -> int:
     var count := 0
 
-    # Layered distant silhouettes replace the giant stretched sphere ridges that were
-    # dominating the portrait render. Keep all scenery behind the animals along -X.
-    count += int(_spawn_gobkit_prop("MountainFar001.glb", "CommunityMountainA", Vector3(-16.0, 0.0, -6.5), 5.0, 0.10))
-    count += int(_spawn_gobkit_prop("MountainFar002.glb", "CommunityMountainB", Vector3(-19.5, 0.0, 1.2), 6.2, -0.28))
-    count += int(_spawn_gobkit_prop("MountainFar003.glb", "CommunityMountainC", Vector3(-15.5, 0.0, 7.2), 4.7, 0.34))
+    # Each imported prop is constrained by both target height and maximum horizontal
+    # footprint. Some low-poly mountain assets are extremely flat in Y; height-only
+    # normalization can otherwise inflate them into camera-filling slabs.
+    count += int(_spawn_gobkit_prop("MountainFar001.glb", "CommunityMountainA", Vector3(-16.0, 0.0, -6.5), 5.0, 8.2, 0.10))
+    count += int(_spawn_gobkit_prop("MountainFar002.glb", "CommunityMountainB", Vector3(-19.5, 0.0, 1.2), 6.2, 9.5, -0.28))
+    count += int(_spawn_gobkit_prop("MountainFar003.glb", "CommunityMountainC", Vector3(-15.5, 0.0, 7.2), 4.7, 8.0, 0.34))
 
-    count += int(_spawn_gobkit_prop("TreeHigh001.glb", "CommunityTreeTallA", Vector3(-8.8, 0.0, -5.8), 5.1, -0.18))
-    count += int(_spawn_gobkit_prop("TreeHigh001.glb", "CommunityTreeTallB", Vector3(-10.2, 0.0, 6.0), 4.5, 0.42))
-    count += int(_spawn_gobkit_prop("TreeLow002.glb", "CommunityTreeLow", Vector3(-6.5, 0.0, -7.0), 2.7, -0.60))
+    count += int(_spawn_gobkit_prop("TreeHigh001.glb", "CommunityTreeTallA", Vector3(-8.8, 0.0, -5.8), 5.1, 4.8, -0.18))
+    count += int(_spawn_gobkit_prop("TreeHigh001.glb", "CommunityTreeTallB", Vector3(-10.2, 0.0, 6.0), 4.5, 4.4, 0.42))
+    count += int(_spawn_gobkit_prop("TreeLow002.glb", "CommunityTreeLow", Vector3(-6.5, 0.0, -7.0), 2.7, 3.4, -0.60))
 
     var bush_positions: Array[Vector3] = [
         Vector3(-5.8, 0.0, -5.1), Vector3(-7.2, 0.0, -4.5),
@@ -178,7 +179,7 @@ func _build_gobkit_landscape() -> int:
     ]
     for i in range(bush_positions.size()):
         var bush_file := "Bush001.glb" if i % 2 == 0 else "Bush002.glb"
-        count += int(_spawn_gobkit_prop(bush_file, "CommunityBush%02d" % i, bush_positions[i], 0.78 + float(i % 3) * 0.14, float(i) * 0.57))
+        count += int(_spawn_gobkit_prop(bush_file, "CommunityBush%02d" % i, bush_positions[i], 0.78 + float(i % 3) * 0.14, 2.2, float(i) * 0.57))
 
     var rock_positions: Array[Vector3] = [
         Vector3(-0.8, 0.0, -3.8), Vector3(3.8, 0.0, -3.4),
@@ -188,7 +189,7 @@ func _build_gobkit_landscape() -> int:
     var rock_files: Array[String] = ["Rock001.glb", "Rock002.glb", "Rock003.glb"]
     for i in range(rock_positions.size()):
         var rock_file: String = rock_files[i % rock_files.size()]
-        count += int(_spawn_gobkit_prop(rock_file, "CommunityRock%02d" % i, rock_positions[i], 0.48 + float(i % 3) * 0.12, float(i) * 0.71))
+        count += int(_spawn_gobkit_prop(rock_file, "CommunityRock%02d" % i, rock_positions[i], 0.48 + float(i % 3) * 0.12, 1.6, float(i) * 0.71))
 
     var reed_positions: Array[Vector3] = [
         Vector3(-0.3, 0.0, 3.9), Vector3(0.6, 0.0, 4.5),
@@ -196,11 +197,11 @@ func _build_gobkit_landscape() -> int:
     ]
     for i in range(reed_positions.size()):
         var reed_file := "Reed001.glb" if i % 2 == 0 else "Reed002.glb"
-        count += int(_spawn_gobkit_prop(reed_file, "CommunityReed%02d" % i, reed_positions[i], 1.05 + float(i % 2) * 0.16, float(i) * 0.44))
+        count += int(_spawn_gobkit_prop(reed_file, "CommunityReed%02d" % i, reed_positions[i], 1.05 + float(i % 2) * 0.16, 1.2, float(i) * 0.44))
 
     return count
 
-func _spawn_gobkit_prop(file_name: String, node_name: String, world_position: Vector3, target_height: float, yaw: float) -> bool:
+func _spawn_gobkit_prop(file_name: String, node_name: String, world_position: Vector3, target_height: float, max_footprint: float, yaw: float) -> bool:
     var path := GOBKIT_NATURE + file_name
     if not ResourceLoader.exists(path):
         return false
@@ -215,17 +216,25 @@ func _spawn_gobkit_prop(file_name: String, node_name: String, world_position: Ve
     instance.position = world_position
     instance.rotation.y = yaw
     fallback_world.add_child(instance)
-    _normalize_static_prop(instance, world_position, target_height, yaw)
+    _normalize_static_prop(instance, world_position, target_height, max_footprint, yaw)
     instance.set_meta("hippo_os_cc0_gobkit", true)
     return true
 
-func _normalize_static_prop(instance: Node3D, world_position: Vector3, target_height: float, yaw: float) -> void:
+func _normalize_static_prop(instance: Node3D, world_position: Vector3, target_height: float, max_footprint: float, yaw: float) -> void:
     instance.scale = Vector3.ONE
     var bounds := _visual_bounds_in_root(instance)
     if bounds.size.y <= 0.001:
+        push_warning("Compatibility prop has invalid vertical bounds: %s" % instance.name)
+        instance.visible = false
         return
 
-    var factor := clampf(target_height / bounds.size.y, 0.05, 20.0)
+    var height_factor := target_height / maxf(bounds.size.y, 0.05)
+    var footprint := maxf(maxf(bounds.size.x, bounds.size.z), 0.05)
+    var footprint_factor := max_footprint / footprint
+    var factor := clampf(minf(height_factor, footprint_factor), 0.05, 8.0)
+    if height_factor > footprint_factor * 1.05:
+        print("HippoOS compatibility footprint clamp: %s height_factor=%.3f footprint_factor=%.3f" % [instance.name, height_factor, footprint_factor])
+
     var center := bounds.position + bounds.size * 0.5
     var rotated_center := Basis(Vector3.UP, yaw) * Vector3(center.x, 0.0, center.z)
     instance.scale = Vector3.ONE * factor
