@@ -97,6 +97,7 @@ jobs:
           grep -q 'package/unique_name="com.sashin.hippoos.personal.ci"' export_presets.cfg
           grep -q 'command_line/extra_args="--rendering-method gl_compatibility --rendering-driver opengl3"' export_presets.cfg
           bash -n ../.github/scripts/verify-production-release.sh
+          bash -n ../.github/scripts/android16-render-proof.sh
           godot --headless --editor --path . --import --quit 2>&1 | tee ../build/godot-import.log
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/godot-import.log
           godot --headless --path . --quit-after 3 2>&1 | tee ../build/godot-smoke.log
@@ -193,6 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           name: HippoOS-Emulator-CI-APK
@@ -213,117 +215,8 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
-          script: |
-            # android-emulator-runner invokes this block with POSIX sh, not bash.
-            set -eu
-            PACKAGE=com.sashin.hippoos.personal.ci
-            adb wait-for-device
-            android_release="$(adb shell getprop ro.build.version.release | tr -d '\r')"
-            android_sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-            printf 'release=%s\nsdk=%s\n' "$android_release" "$android_sdk" | tee apk/android-version.txt
-            case "$android_release" in
-              16|16.*) ;;
-              *) echo "Unexpected Android release: $android_release" >&2; exit 1 ;;
-            esac
-            test "$android_sdk" = '36'
-
-            # CI runs on a disposable emulator. Remove any stale test package so the
-            # registration/launch proof always starts from a known PackageManager state.
-            adb uninstall "$PACKAGE" > apk/adb-uninstall.txt 2>&1 || true
-            adb install --no-streaming -r apk/HippoOS-Emulator-CI.apk | tee apk/adb-install.txt
-            grep -q '^Success$' apk/adb-install.txt
-
-            registered=0
-            for attempt in $(seq 1 45); do
-              adb shell pm list packages | tr -d '\r' > apk/adb-package-list.txt
-              if grep -Fxq "package:$PACKAGE" apk/adb-package-list.txt; then
-                registered=1
-                echo "PackageManager registered Hippo OS on attempt ${attempt}."
-                break
-              fi
-              sleep 1
-            done
-            test "$registered" -eq 1
-
-            package_path="$(adb shell pm path "$PACKAGE" | tr -d '\r')"
-            printf '%s\n' "$package_path" | tee apk/adb-package-path.txt
-            test -n "$package_path"
-            grep -q '^package:' apk/adb-package-path.txt
-
-            adb shell dumpsys package "$PACKAGE" > apk/adb-package.txt
-            grep -q 'versionCode=4' apk/adb-package.txt
-            grep -q 'targetSdk=36' apk/adb-package.txt
-
-            component=''
-            for attempt in $(seq 1 30); do
-              component="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$PACKAGE" 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
-              case "$component" in
-                "$PACKAGE/"*)
-                  echo "Resolved launcher component on attempt ${attempt}: $component"
-                  break
-                  ;;
-              esac
-              sleep 1
-            done
-            printf '%s\n' "$component" | tee apk/adb-launch-component.txt
-            case "$component" in
-              "$PACKAGE/"*) ;;
-              *) echo "Unable to resolve Hippo OS launcher activity: $component" >&2; exit 1 ;;
-            esac
-
-            adb shell settings put secure immersive_mode_confirmations confirmed || true
-            adb logcat -c
-            adb shell am force-stop "$PACKAGE" || true
-            adb shell am start -W -n "$component" | tee apk/adb-launch.txt
-            grep -q 'Status: ok' apk/adb-launch.txt
-
-            visible=0
-            for attempt in $(seq 1 18); do
-              sleep 5
-              pid="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
-              printf '%s\n' "$pid" | tee apk/adb-pid.txt
-              adb logcat -d -t 1200 > apk/adb-logcat.txt
-
-              if [ -z "$pid" ]; then
-                if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt; then
-                  echo 'Hippo OS process crashed during Android 16 launch proof.' >&2
-                  exit 1
-                fi
-                echo "Hippo OS process not resident yet on attempt ${attempt}; retrying."
-                continue
-              fi
-
-              adb logcat -d --pid="$pid" > apk/adb-app-logcat.txt
-              ! grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' apk/adb-logcat.txt
-              ! grep -Eiq 'Program linking failed|GL_MAX_FRAGMENT_UNIFORM_VECTORS|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:' apk/adb-app-logcat.txt
-              adb exec-out screencap -p > apk/launch-attempt.png
-              test -s apk/launch-attempt.png
-
-              if python3 - <<'PY'
-            from PIL import Image, ImageStat
-            image = Image.open('apk/launch-attempt.png').convert('RGB')
-            stat = ImageStat.Stat(image)
-            extrema = image.getextrema()
-            spread = max(high - low for low, high in extrema)
-            deviation = max(stat.stddev)
-            mean = sum(stat.mean) / 3.0
-            print(f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} spread={spread}')
-            if deviation < 8.0 or spread < 30 or mean < 8.0:
-                raise SystemExit(1)
-            PY
-              then
-                cp apk/launch-attempt.png apk/launch.png
-                visible=1
-                echo "Visible Hippo OS frame proven on attempt ${attempt}."
-                break
-              fi
-            done
-
-            test "$visible" -eq 1
-            adb shell dumpsys window displays > apk/window-displays.txt
-            echo "Launch screenshot bytes: $(stat -c%s apk/launch.png)"
-            test "$(stat -c%s apk/launch.png)" -ge 30000
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim -no-metrics
+          script: bash .github/scripts/android16-render-proof.sh
       - name: Upload Android 16 evidence
         if: always()
         uses: actions/upload-artifact@v4
