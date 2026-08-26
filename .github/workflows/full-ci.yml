@@ -6,6 +6,7 @@ on:
     branches: [main, polish/4k-lifelike-animals]
     paths:
       - 'godot/**'
+      - 'Docs/RELEASE_RUNTIME.md'
       - '.github/scripts/**'
       - '.github/visual/**'
       - '.github/workflows/**'
@@ -14,6 +15,7 @@ on:
     branches: [main]
     paths:
       - 'godot/**'
+      - 'Docs/RELEASE_RUNTIME.md'
       - '.github/scripts/**'
       - '.github/visual/**'
       - '.github/workflows/**'
@@ -44,26 +46,36 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          test -f Docs/RELEASE_RUNTIME.md
+          grep -Fq 'Godot 4.7.x project under `godot/` is the only authoritative Android release runtime' Docs/RELEASE_RUNTIME.md
           test -f godot/project.godot
           test -f godot/scripts/voice_command_director.gd
           test -f godot/scripts/animal_mind_director.gd
+          test -f godot/scripts/offline_persistence.gd
           test -f godot/scripts/open_world_runtime.gd
           test -f godot/scripts/gameplay_director.gd
           test -f godot/scripts/audio_director.gd
           test -f godot/scripts/final_presentation_director.gd
-          test -f .github/scripts/android16-render-proof.sh
+          test -f .github/scripts/android16-install-proof.sh
+          test -f .github/scripts/physical-android16-certification.sh
           test -f .github/scripts/visual-regression-gate.py
           grep -Fq 'VoiceCommandDirector="*res://scripts/voice_command_director.gd"' godot/project.godot
           grep -Fq 'AnimalMindDirector="*res://scripts/animal_mind_director.gd"' godot/project.godot
+          grep -Fq 'OfflinePersistence="*res://scripts/offline_persistence.gd"' godot/project.godot
           grep -Fq 'OpenWorldRuntime="*res://scripts/open_world_runtime.gd"' godot/project.godot
           grep -q 'renderer/rendering_method="mobile"' godot/project.godot
           grep -q 'rendering_device/fallback_to_opengl3=true' godot/project.godot
           grep -q 'package/unique_name="com.sashin.hippoos"' godot/export_presets.cfg
-          grep -q 'targetSdkVersion' .github/workflows/build-android-apk.yml || true
-          bash -n .github/scripts/android16-render-proof.sh
+          bash -n .github/scripts/android16-install-proof.sh
+          bash -n .github/scripts/physical-android16-certification.sh
           bash -n .github/scripts/fetch-audio-assets.sh
           python3 -m py_compile .github/scripts/visual-regression-gate.py
           python3 -m json.tool .github/visual/grasslands-reference-profile.json >/dev/null
+      - name: Enforce authoritative release runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ! grep -RniE 'working-directory:[[:space:]]*(Source|Config)|HippoOS\.uproject|RunUAT|UnrealBuildTool' .github/workflows --include='*.yml' --include='*.yaml'
       - name: Reject unsafe release shortcuts
         shell: bash
         run: |
@@ -179,8 +191,8 @@ jobs:
           path: build/full-ci/
           retention-days: 30
 
-  android16-render-install:
-    name: Android 16 install and rendered-frame proof
+  android16-install-lifecycle:
+    name: Android 16 install and cold-launch lifecycle proof
     needs: godot-smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -223,15 +235,13 @@ jobs:
           godot --headless --editor --path . --import --quit
           godot --headless --verbose --path . --export-release 'Android Emulator CI' "$GITHUB_WORKSPACE/apk/HippoOS-Emulator-CI.apk"
           test -s "$GITHUB_WORKSPACE/apk/HippoOS-Emulator-CI.apk"
-      - name: Install screenshot validator
-        run: python3 -m pip install --user pillow
       - name: Enable KVM access
         shell: bash
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
-      - name: Run Android 16 install and visual proof
+      - name: Run Android 16 install and lifecycle proof
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -240,28 +250,29 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
-          script: bash .github/scripts/android16-render-proof.sh
-      - name: Upload Android 16 proof
+          script: bash .github/scripts/android16-install-proof.sh
+      - name: Upload Android 16 lifecycle evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: HippoOS-FullCI-Android16-Proof
+          name: HippoOS-FullCI-Android16-Install-Proof
           path: apk/
           if-no-files-found: warn
           retention-days: 30
 
   release-gate:
-    name: Full CI release gate
-    needs: [architecture-contract, godot-smoke, android-build, android16-render-install]
+    name: Full CI candidate gate
+    needs: [architecture-contract, godot-smoke, android-build, android16-install-lifecycle]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every gate green
+      - name: Require every CI candidate gate green
         shell: bash
         run: |
           set -euxo pipefail
           test '${{ needs.architecture-contract.result }}' = 'success'
           test '${{ needs.godot-smoke.result }}' = 'success'
           test '${{ needs.android-build.result }}' = 'success'
-          test '${{ needs.android16-render-install.result }}' = 'success'
-          echo 'HIPPO OS FULL CI: GREEN'
+          test '${{ needs.android16-install-lifecycle.result }}' = 'success'
+          echo 'HIPPO OS CI-READY CANDIDATE: GREEN'
+          echo 'Physical Android 16 device certification of this exact APK SHA-256 is still required before declaring DEVICE_CERTIFIED.'
