@@ -1,0 +1,1 @@
+The Android 16 emulator proof intentionally constrains only Godot's Compatibility/OpenGL renderer. The production ARM64 phone export remains Mobile/Vulkan. This keeps low-end/SwiftShader shader variants within conservative GLES3 limits while preserving production rendering quality.
