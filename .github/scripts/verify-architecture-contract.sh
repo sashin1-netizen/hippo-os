@@ -27,6 +27,7 @@ require_file godot/scripts/sanctuary_hud.gd
 require_file godot/scripts/hero_camera_director.gd
 require_file godot/scripts/production_asset_loader.gd
 require_file godot/scripts/final_presentation_director.gd
+require_file godot/scripts/offline_persistence.gd
 
 require_text Docs/ARCHITECTURE.md 'Hippo OS is a portrait-first, offline-first Android companion application built in Godot 4.7.'
 require_text Docs/ARCHITECTURE.md 'FinalPresentationDirector'
@@ -36,7 +37,7 @@ if grep -Eq 'AHippoCharacter|UHippoNeedsComponent|AHippoAIController|AHippoPlaye
   fail 'ARCHITECTURE.md has regressed to the obsolete Unreal runtime model'
 fi
 
-for service in GameplayDirector SanctuaryHUD HeroCameraDirector ProductionAssetLoader FinalPresentationDirector; do
+for service in GameplayDirector SanctuaryHUD HeroCameraDirector ProductionAssetLoader FinalPresentationDirector OfflinePersistence; do
   count="$(grep -Ec "^${service}=" godot/project.godot || true)"
   [[ "$count" == "1" ]] || fail "$service must appear exactly once as an autoload (found $count)"
 done
@@ -54,6 +55,11 @@ done
 require_text godot/scripts/main.gd 'const SAVE_PATH = "user://hippo_save.json"'
 require_text godot/scripts/companion_roster.gd 'const SAVE_PATH = "user://companion_roster.json"'
 require_text godot/scripts/app_completeness.gd 'const SAVE_PATH := "user://hippo_app_features.json"'
+require_text godot/scripts/offline_persistence.gd 'const STORE_PATH := "user://hippo_offline_state.json"'
+require_text godot/scripts/offline_persistence.gd 'const SCHEMA_VERSION := 1'
+require_text godot/scripts/offline_persistence.gd 'func get_pending_sync_events() -> Array:'
+require_text godot/scripts/offline_persistence.gd 'func acknowledge_sync_event(event_id: String) -> bool:'
+require_text godot/scripts/offline_persistence.gd 'func _write_json_atomic(path: String, payload: Dictionary) -> bool:'
 
 require_text godot/scripts/final_presentation_director.gd '_authoritative_animals_ready()'
 require_text godot/scripts/final_presentation_director.gd '_authoritative_world_ready()'
