@@ -106,6 +106,55 @@ jobs:
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/HippoOS.signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/HippoOS.signature.txt
           sha256sum "$APK" | tee build/HippoOS.apk.sha256
+      - name: Create clean-room fresh-install preset
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('godot/export_presets.cfg')
+          text = p.read_text(encoding='utf-8')
+          start = text.index('[preset.0]')
+          end = text.index('[preset.1]')
+          block = text[start:end].rstrip()
+          block = block.replace('[preset.0]', '[preset.5]', 1)
+          block = block.replace('[preset.0.options]', '[preset.5.options]', 1)
+          block = block.replace('name="Android"', 'name="Android Fresh Install Playtest"', 1)
+          block = block.replace('runnable=true', 'runnable=false', 1)
+          block = block.replace('export_path="../build/HippoOS-Personal.apk"', 'export_path="../build/HippoOS-FRESH-PLAYTEST.apk"', 1)
+          block = block.replace('version/code=104', 'version/code=105', 1)
+          block = block.replace('version/name="0.2.6-package-fix"', 'version/name="0.2.6-fresh-playtest"', 1)
+          block = block.replace('package/unique_name="com.sashin.hippoos"', 'package/unique_name="com.sashin.hippoos.playtest"', 1)
+          block = block.replace('package/name="Hippo OS"', 'package/name="Hippo OS Playtest"', 1)
+          p.write_text(text.rstrip() + '\n\n' + block + '\n', encoding='utf-8')
+          PY
+      - name: Export clean-room fresh-install APK
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          godot --headless --verbose --path . --export-release 'Android Fresh Install Playtest' "$GITHUB_WORKSPACE/build/HippoOS-FRESH-PLAYTEST.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/fresh-export.log"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS-FRESH-PLAYTEST.apk"
+      - name: Verify clean-room fresh-install package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK=build/HippoOS-FRESH-PLAYTEST.apk
+          APKANALYZER="$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          APP_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          TARGET_SDK="$("$APKANALYZER" manifest target-sdk "$APK")"
+          VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+          printf 'applicationId=%s\ntargetSdk=%s\nversionCode=%s\n' "$APP_ID" "$TARGET_SDK" "$VERSION_CODE" | tee build/FRESH.package.txt
+          test "$APP_ID" = 'com.sashin.hippoos.playtest'
+          test "$TARGET_SDK" = '36'
+          test "$VERSION_CODE" = '105'
+          unzip -l "$APK" | tee build/FRESH.contents.txt
+          grep -q 'lib/arm64-v8a/libgodot_android.so' build/FRESH.contents.txt
+          ! grep -q 'lib/x86_64/libgodot_android.so' build/FRESH.contents.txt
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee build/FRESH.zipalign.txt
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/FRESH.signature.txt
+          grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/FRESH.signature.txt
+          sha256sum "$APK" | tee build/FRESH.apk.sha256
       - name: Export x86_64 emulator APK
         working-directory: godot
         shell: bash
@@ -136,6 +185,20 @@ jobs:
             build/godot-import.log
             build/godot-smoke.log
             build/godot-export-release.log
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload clean-room fresh-install APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Fresh-Install-Playtest-APK
+          path: |
+            build/HippoOS-FRESH-PLAYTEST.apk
+            build/FRESH.apk.sha256
+            build/FRESH.package.txt
+            build/FRESH.contents.txt
+            build/FRESH.signature.txt
+            build/FRESH.zipalign.txt
+            build/fresh-export.log
           if-no-files-found: error
           retention-days: 30
       - name: Upload emulator APK
