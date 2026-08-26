@@ -66,16 +66,12 @@ jobs:
           grep -q 'renderer/rendering_method="mobile"' godot/project.godot
           grep -q 'rendering_device/fallback_to_opengl3=true' godot/project.godot
           grep -q 'package/unique_name="com.sashin.hippoos"' godot/export_presets.cfg
+          bash .github/scripts/verify-architecture-contract.sh
           bash -n .github/scripts/android16-install-proof.sh
           bash -n .github/scripts/physical-android16-certification.sh
           bash -n .github/scripts/fetch-audio-assets.sh
           python3 -m py_compile .github/scripts/visual-regression-gate.py
           python3 -m json.tool .github/visual/grasslands-reference-profile.json >/dev/null
-      - name: Enforce authoritative release runtime
-        shell: bash
-        run: |
-          set -euxo pipefail
-          ! grep -RniE 'working-directory:[[:space:]]*(Source|Config)|HippoOS\.uproject|RunUAT|UnrealBuildTool' .github/workflows --include='*.yml' --include='*.yaml'
       - name: Reject unsafe release shortcuts
         shell: bash
         run: |
