@@ -19,6 +19,7 @@ require_text() {
 
 require_file Docs/ARCHITECTURE.md
 require_file Docs/CODING_STANDARDS.md
+require_file Docs/RELEASE_RUNTIME.md
 require_file godot/project.godot
 require_file godot/scripts/main.gd
 require_file godot/scripts/companion_roster.gd
@@ -28,11 +29,16 @@ require_file godot/scripts/hero_camera_director.gd
 require_file godot/scripts/production_asset_loader.gd
 require_file godot/scripts/final_presentation_director.gd
 require_file godot/scripts/offline_persistence.gd
+require_file .github/scripts/android16-install-proof.sh
+require_file .github/scripts/physical-android16-certification.sh
+require_file .github/workflows/physical-android16-certification.yml
 
 require_text Docs/ARCHITECTURE.md 'Hippo OS is a portrait-first, offline-first Android companion application built in Godot 4.7.'
 require_text Docs/ARCHITECTURE.md 'FinalPresentationDirector'
 require_text Docs/ARCHITECTURE.md 'Unidirectional interaction flow'
 require_text Docs/ARCHITECTURE.md 'Offline-first data model'
+require_text Docs/RELEASE_RUNTIME.md 'Godot 4.7.x project under `godot/` is the only authoritative Android release runtime'
+require_text Docs/RELEASE_RUNTIME.md 'exact ARM64 APK SHA-256'
 if grep -Eq 'AHippoCharacter|UHippoNeedsComponent|AHippoAIController|AHippoPlayerController' Docs/ARCHITECTURE.md; then
   fail 'ARCHITECTURE.md has regressed to the obsolete Unreal runtime model'
 fi
@@ -65,6 +71,9 @@ require_text godot/scripts/final_presentation_director.gd '_authoritative_animal
 require_text godot/scripts/final_presentation_director.gd '_authoritative_world_ready()'
 require_text godot/scripts/final_presentation_director.gd '_camera_frames_hero()'
 require_text godot/scripts/final_presentation_director.gd 'HippoOS community showcase ready'
+require_text .github/scripts/physical-android16-certification.sh 'status=DEVICE_CERTIFIED'
+require_text .github/scripts/physical-android16-certification.sh 'visual-regression-gate.py'
+require_text .github/scripts/physical-android16-certification.sh 'apk_sha256'
 
 require_text godot/scripts/hero_camera_director.gd 'camera.global_position = camera.global_position.lerp'
 require_text godot/scripts/final_presentation_director.gd '_quarantine_legacy_builders'
@@ -79,6 +88,11 @@ done
 
 if grep -Eq 'HTTPRequest\.new\(\)|WebSocketPeer\.new\(\)' godot/scripts/main.gd godot/scripts/companion_roster.gd godot/scripts/sanctuary_hud.gd; then
   fail 'core domain/UI directly creates network clients; move connectivity behind an infrastructure boundary'
+fi
+
+# Release workflows must not treat the legacy Unreal tree as an alternative ship path.
+if grep -RniE 'HippoOS\.uproject|RunUAT|UnrealBuildTool|working-directory:[[:space:]]*(Source|Config)' .github/workflows --include='*.yml' --include='*.yaml'; then
+  fail 'a GitHub release workflow references the non-authoritative Unreal runtime'
 fi
 
 echo 'Architecture contract: PASS'
