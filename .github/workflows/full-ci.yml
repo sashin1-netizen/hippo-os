@@ -155,9 +155,17 @@ jobs:
         run: |
           set -euxo pipefail
           APK=build/full-ci/HippoOS-Personal.apk
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" | tee build/full-ci/badging.txt
-          grep -q "package: name='com.sashin.hippoos'" build/full-ci/badging.txt
-          grep -q "targetSdkVersion:'36'" build/full-ci/badging.txt
+          APKANALYZER="$(command -v apkanalyzer || true)"
+          if [ -z "$APKANALYZER" ]; then
+            APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          fi
+          test -n "$APKANALYZER"
+          test -x "$APKANALYZER"
+          APP_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          TARGET_SDK="$("$APKANALYZER" manifest target-sdk "$APK")"
+          printf "applicationId=%s\ntargetSdk=%s\n" "$APP_ID" "$TARGET_SDK" | tee build/full-ci/package-contract.txt
+          test "$APP_ID" = 'com.sashin.hippoos'
+          test "$TARGET_SDK" = '36'
           unzip -l "$APK" | tee build/full-ci/contents.txt
           grep -q 'lib/arm64-v8a/libgodot_android.so' build/full-ci/contents.txt
           ! grep -q 'lib/x86_64/libgodot_android.so' build/full-ci/contents.txt
