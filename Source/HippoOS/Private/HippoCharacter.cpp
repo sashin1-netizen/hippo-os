@@ -1,10 +1,12 @@
 #include "HippoCharacter.h"
 
+#include "HippoAIController.h"
 #include "HippoNeedsComponent.h"
 #include "HippoPersonalityComponent.h"
 #include "HippoMemoryComponent.h"
 #include "HippoBrainComponent.h"
 
+#include "AIController.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -21,6 +23,9 @@ AHippoCharacter::AHippoCharacter()
     Personality = CreateDefaultSubobject<UHippoPersonalityComponent>(TEXT("Personality"));
     Memory = CreateDefaultSubobject<UHippoMemoryComponent>(TEXT("Memory"));
     Brain = CreateDefaultSubobject<UHippoBrainComponent>(TEXT("Brain"));
+
+    AIControllerClass = AHippoAIController::StaticClass();
+    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
     GetCapsuleComponent()->InitCapsuleSize(62.0f, 78.0f);
     GetCharacterMovement()->MaxWalkSpeed = 180.0f;
@@ -109,6 +114,13 @@ void AHippoCharacter::UpdateAutonomousMovement(float DeltaTime)
 {
     if (!Brain || !GetWorld()) return;
 
+    // When possessed by the production AI controller, movement is NavMesh-driven.
+    // Keep the legacy direct-movement path only as a fallback for maps without AI possession.
+    if (Cast<AAIController>(GetController()))
+    {
+        return;
+    }
+
     const EHippoAction Action = Brain->CurrentAction;
 
     if (Action == EHippoAction::Sleep || Action == EHippoAction::Idle || Action == EHippoAction::SeekFood)
@@ -151,6 +163,7 @@ void AHippoCharacter::ReceivePet(float Strength)
 {
     if (Needs) Needs->ApplyPetting(Strength);
     if (Memory) Memory->RecordInteraction(EHippoInteractionType::Pet, 0.05f * FMath::Clamp(Strength, 0.0f, 2.0f));
+    if (Brain) Brain->ReinforceAction(EHippoAction::ApproachPlayer, 0.015f * FMath::Clamp(Strength, 0.0f, 2.0f));
     PetPulse = 1.0f;
 }
 
@@ -158,4 +171,5 @@ void AHippoCharacter::ReceiveFood(float Nutrition)
 {
     if (Needs) Needs->ApplyFeeding(Nutrition);
     if (Memory) Memory->RecordInteraction(EHippoInteractionType::Feed, 0.08f);
+    if (Brain) Brain->ReinforceAction(EHippoAction::SeekFood, 0.02f);
 }
