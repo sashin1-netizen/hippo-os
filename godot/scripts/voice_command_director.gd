@@ -11,10 +11,12 @@ signal command_rejected(transcript: String)
 const TARGET_ALIASES := {
     "mochi": "BabyHippo",
     "hippo": "BabyHippo",
-    "porky": "Pig",
-    "pig": "Pig",
-    "bao": "Dog",
-    "dog": "Dog"
+    "porky": "PorkyPig",
+    "pig": "PorkyPig",
+    "bao": "BaoSharPei",
+    "dog": "BaoSharPei",
+    "shar pei": "BaoSharPei",
+    "shar-pei": "BaoSharPei"
 }
 
 const COMMAND_ALIASES := {
@@ -78,7 +80,6 @@ func _dispatch(command: String, target: String) -> void:
     if animal != null:
         animal.set_meta("voice_command", command)
         animal.set_meta("voice_command_time_msec", Time.get_ticks_msec())
-    # Existing gameplay directors can consume this without a hard dependency.
     scene.set_meta("voice_command", command)
     scene.set_meta("voice_target", target)
     scene.set_meta("voice_command_time_msec", Time.get_ticks_msec())
