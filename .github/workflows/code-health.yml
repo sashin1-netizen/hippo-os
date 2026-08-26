@@ -108,10 +108,23 @@ jobs:
             echo 'write-all workflow permissions are forbidden.' >&2
             exit 1
           fi
-          if grep -RniE '^\s*contents\s*:\s*write\s*$' .github/workflows; then
-            echo 'Repository-writing CI is forbidden; fixes must be reviewed commits.' >&2
-            exit 1
+
+          # Only the installer-proven publisher may write repository contents, because it
+          # creates/updates a prerelease after the Android 16 install gate. Every other
+          # workflow must remain read-only.
+          write_hits="$(grep -RniE '^\s*contents\s*:\s*write\s*$' .github/workflows || true)"
+          if [ -n "$write_hits" ]; then
+            printf '%s\n' "$write_hits"
+            unexpected="$(printf '%s\n' "$write_hits" | grep -v '^.github/workflows/build-existing-app-update-v026.yml:' || true)"
+            if [ -n "$unexpected" ]; then
+              echo 'Unexpected repository-writing CI permission detected.' >&2
+              printf '%s\n' "$unexpected" >&2
+              exit 1
+            fi
+            grep -Fq "if: github.event_name == 'push'" .github/workflows/build-existing-app-update-v026.yml
+            grep -Fq 'gh release' .github/workflows/build-existing-app-update-v026.yml
           fi
+
           ! grep -RniE 'curl[^|]*\|\s*(ba)?sh|wget[^|]*\|\s*(ba)?sh' .github/workflows .github/scripts
 
       - name: Reject merge debris and accidental secrets
