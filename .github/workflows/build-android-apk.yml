@@ -41,8 +41,8 @@ jobs:
           set -euxo pipefail
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;36.1.0' 'platforms;android-36' 'cmdline-tools;latest' 'cmake;3.10.2.4988404' 'ndk;29.0.14206865'
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" version
           "$ANDROID_HOME/build-tools/36.1.0/apksigner" version
+          apkanalyzer --version || true
       - name: Install stable personal signing key
         shell: bash
         run: |
@@ -128,10 +128,18 @@ jobs:
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-Personal.apk"
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS.badging.txt 2> build/HippoOS.badging.stderr.txt || true
-          grep -q "package: name='com.sashin.hippoos'" build/HippoOS.badging.txt
-          grep -q "targetSdkVersion:'36'" build/HippoOS.badging.txt
-          grep -q "versionCode='104'" build/HippoOS.badging.txt
+          APKANALYZER="$(command -v apkanalyzer || true)"
+          if [ -z "$APKANALYZER" ]; then
+            APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          fi
+          test -x "$APKANALYZER"
+          APP_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          TARGET_SDK="$("$APKANALYZER" manifest target-sdk "$APK")"
+          VERSION_CODE="$("$APKANALYZER" manifest version-code "$APK")"
+          printf 'applicationId=%s\ntargetSdk=%s\nversionCode=%s\n' "$APP_ID" "$TARGET_SDK" "$VERSION_CODE" | tee build/HippoOS.package.txt
+          test "$APP_ID" = 'com.sashin.hippoos'
+          test "$TARGET_SDK" = '36'
+          test "$VERSION_CODE" = '104'
           unzip -l "$APK" | tee build/HippoOS.contents.txt
           grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS.contents.txt
           ! grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS.contents.txt
@@ -157,8 +165,14 @@ jobs:
         run: |
           set -euxo pipefail
           APK="$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk"
-          "$ANDROID_HOME/build-tools/36.1.0/aapt" dump badging "$APK" > build/HippoOS-CI.badging.txt 2> build/HippoOS-CI.badging.stderr.txt || true
-          grep -q "package: name='com.sashin.hippoos.personal.ci'" build/HippoOS-CI.badging.txt
+          APKANALYZER="$(command -v apkanalyzer || true)"
+          if [ -z "$APKANALYZER" ]; then
+            APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          fi
+          test -x "$APKANALYZER"
+          APP_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          test "$APP_ID" = 'com.sashin.hippoos.personal.ci'
+          printf 'applicationId=%s\n' "$APP_ID" | tee build/HippoOS-CI.package.txt
           unzip -l "$APK" | tee build/HippoOS-CI.contents.txt
           grep -q 'lib/x86_64/libgodot_android.so' build/HippoOS-CI.contents.txt
           ! grep -q 'lib/arm64-v8a/libgodot_android.so' build/HippoOS-CI.contents.txt
@@ -171,8 +185,7 @@ jobs:
           path: |
             build/HippoOS-Personal.apk
             build/HippoOS.apk.sha256
-            build/HippoOS.badging.txt
-            build/HippoOS.badging.stderr.txt
+            build/HippoOS.package.txt
             build/HippoOS.contents.txt
             build/HippoOS.signature.txt
             build/HippoOS.zipalign.txt
@@ -188,7 +201,7 @@ jobs:
           path: |
             build/HippoOS-Emulator-CI.apk
             build/HippoOS-CI.apk.sha256
-            build/HippoOS-CI.badging.txt
+            build/HippoOS-CI.package.txt
             build/HippoOS-CI.contents.txt
             build/godot-import-emulator.log
             build/godot-export-emulator.log
@@ -222,7 +235,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim -no-metrics
+          emulator-options: -no-window -gpu swiftshader_indirect -feature -Vulkan -no-snapshot -noaudio -no-boot-anim -no-metrics
           script: bash .github/scripts/android16-render-proof.sh
       - name: Upload Android 16 evidence
         if: always()
