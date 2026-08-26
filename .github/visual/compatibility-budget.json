@@ -1,0 +1,7 @@
+{
+  "renderer": "Compatibility/OpenGL ES 3",
+  "max_lights_per_object": 1,
+  "max_renderable_lights": 4,
+  "max_renderable_elements": 8192,
+  "production_mobile_vulkan_unchanged": true
+}
