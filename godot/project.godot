@@ -49,8 +49,11 @@ handheld/orientation=1
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
 rendering_device/fallback_to_opengl3=true
-limits/opengl/max_lights_per_object=4
-limits/opengl/max_renderable_lights=16
+# Compatibility/OpenGL only. Keep the GLES3 base shader below low-end/SwiftShader
+# fragment-uniform limits without reducing the Mobile/Vulkan phone presentation.
+limits/opengl/max_lights_per_object=1
+limits/opengl/max_renderable_lights=4
+limits/opengl/max_renderable_elements=8192
 textures/default_filters/use_nearest_mipmap_filter=false
 textures/vram_compression/import_etc2_astc=true
 
