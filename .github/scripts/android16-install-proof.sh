@@ -2,8 +2,8 @@
 set -euo pipefail
 
 APK_PATH="${1:-apk/HippoOS-Emulator-CI.apk}"
-PACKAGE_ID="com.sashin.hippoos"
 EVIDENCE_DIR="${2:-apk/android16-install-proof}"
+PACKAGE_ID="${3:-com.sashin.hippoos.personal.ci}"
 mkdir -p "$EVIDENCE_DIR"
 
 adb wait-for-device
@@ -19,8 +19,23 @@ adb logcat -c
 adb install -r -t "$APK_PATH" | tee "$EVIDENCE_DIR/install.txt"
 grep -q 'Success' "$EVIDENCE_DIR/install.txt"
 
+# Verify that the package we expect is actually installed before attempting launch.
+adb shell pm path "$PACKAGE_ID" | tr -d '\r' | tee "$EVIDENCE_DIR/package-path.txt"
+grep -q '^package:' "$EVIDENCE_DIR/package-path.txt"
+
 adb shell am force-stop "$PACKAGE_ID" || true
-adb shell monkey -p "$PACKAGE_ID" -c android.intent.category.LAUNCHER 1 | tee "$EVIDENCE_DIR/launch.txt"
+
+# Resolve the exported launcher activity explicitly. This is more deterministic than
+# monkey and also records the exact Android component used by the lifecycle proof.
+LAUNCH_COMPONENT="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$PACKAGE_ID" 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
+if [ -z "$LAUNCH_COMPONENT" ] || [ "$LAUNCH_COMPONENT" = "No activity found" ]; then
+  adb shell dumpsys package "$PACKAGE_ID" > "$EVIDENCE_DIR/package-dump.txt" || true
+  echo "No launcher activity resolved for $PACKAGE_ID" >&2
+  exit 1
+fi
+printf '%s\n' "$LAUNCH_COMPONENT" | tee "$EVIDENCE_DIR/launcher-component.txt"
+adb shell am start -W -n "$LAUNCH_COMPONENT" | tee "$EVIDENCE_DIR/launch.txt"
+grep -Eq 'Status: ok|Complete' "$EVIDENCE_DIR/launch.txt"
 
 PID=""
 for _ in $(seq 1 40); do
@@ -51,6 +66,7 @@ fi
 {
   echo "package=$PACKAGE_ID"
   echo "api=$API_LEVEL"
+  echo "launcher=$LAUNCH_COMPONENT"
   echo "pid=$PID_AFTER"
   echo "status=PASS"
 } | tee "$EVIDENCE_DIR/summary.txt"
