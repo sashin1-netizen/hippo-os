@@ -101,18 +101,33 @@ for attempt in $(seq 1 30); do
   sleep 5
   pid="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
   printf '%s\n' "$pid" | tee "$EVIDENCE_DIR/adb-pid.txt"
-  adb logcat -d -t 1800 > "$EVIDENCE_DIR/adb-logcat.txt"
+  adb logcat -d -t 2400 > "$EVIDENCE_DIR/adb-logcat.txt" || true
+  adb logcat -b crash -d > "$EVIDENCE_DIR/adb-crash-logcat.txt" 2>&1 || true
 
   if [[ -z "$pid" ]]; then
-    if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' "$EVIDENCE_DIR/adb-logcat.txt"; then
+    if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application|Fatal signal|DEBUG.*pid:.*>>> com\.sashin\.hippoos\.personal\.ci' \
+      "$EVIDENCE_DIR/adb-logcat.txt" "$EVIDENCE_DIR/adb-crash-logcat.txt"; then
       echo 'Hippo OS process crashed during Android 16 launch proof.' >&2
       exit 1
     fi
+    echo "Hippo OS process not present on attempt ${attempt}; relaunching for diagnosis."
+    adb shell am start -n "$component" >/dev/null 2>&1 || true
     continue
   fi
 
-  adb logcat -d --pid="$pid" > "$EVIDENCE_DIR/adb-app-logcat.txt"
-  if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application' "$EVIDENCE_DIR/adb-logcat.txt"; then
+  # The process can disappear after pidof. Per-PID logcat returns 255 in that race;
+  # never let that mask the real Android/Godot error evidence.
+  adb logcat -d --pid="$pid" > "$EVIDENCE_DIR/adb-app-logcat.txt" 2>&1 || true
+  pid_after="$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
+  if [[ -z "$pid_after" ]]; then
+    adb logcat -d -t 3000 > "$EVIDENCE_DIR/adb-logcat.txt" || true
+    adb logcat -b crash -d > "$EVIDENCE_DIR/adb-crash-logcat.txt" 2>&1 || true
+    echo 'Hippo OS process exited during Android 16 render proof; captured crash buffers.' >&2
+    exit 1
+  fi
+
+  if grep -Eiq 'FATAL EXCEPTION|Process: com\.sashin\.hippoos\.personal\.ci.*has died|Unable to instantiate application|Fatal signal' \
+    "$EVIDENCE_DIR/adb-logcat.txt" "$EVIDENCE_DIR/adb-crash-logcat.txt"; then
     echo 'Hippo OS process crashed during Android 16 render proof.' >&2
     exit 1
   fi
