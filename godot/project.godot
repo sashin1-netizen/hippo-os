@@ -8,6 +8,7 @@ boot_splash/show_image=false
 
 [autoload]
 SaveMigrator="*res://scripts/save_migrator.gd"
+OfflinePersistence="*res://scripts/offline_persistence.gd"
 CompatibilityShaderBudgetGuard="*res://scripts/compatibility_shader_budget_guard.gd"
 AudioDirector="*res://scripts/audio_director.gd"
 AudioControls="*res://scripts/audio_controls.gd"
