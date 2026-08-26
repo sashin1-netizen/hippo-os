@@ -13,6 +13,7 @@
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "UObject/ConstructorHelpers.h"
 
 AHippoCharacter::AHippoCharacter()
@@ -114,11 +115,14 @@ void AHippoCharacter::UpdateAutonomousMovement(float DeltaTime)
 {
     if (!Brain || !GetWorld()) return;
 
-    // When possessed by the production AI controller, movement is NavMesh-driven.
-    // Keep the legacy direct-movement path only as a fallback for maps without AI possession.
-    if (Cast<AAIController>(GetController()))
+    // Prefer NavMesh movement when the AI controller has an active path.
+    // If the generated sanctuary has no nav data, continue using the proven direct fallback.
+    if (AAIController* AI = Cast<AAIController>(GetController()))
     {
-        return;
+        if (AI->GetMoveStatus() != EPathFollowingStatus::Idle)
+        {
+            return;
+        }
     }
 
     const EHippoAction Action = Brain->CurrentAction;
