@@ -18,5 +18,8 @@ public:
     UPROPERTY(BlueprintReadWrite) int32 SessionCount = 0;
     UPROPERTY(BlueprintReadWrite) float Bond = 0.35f;
     UPROPERTY(BlueprintReadWrite) TArray<FHippoInteractionRecord> Interactions;
+    UPROPERTY(BlueprintReadWrite) FTransform HippoTransform = FTransform::Identity;
+    UPROPERTY(BlueprintReadWrite) EHippoAction LastAction = EHippoAction::Idle;
+    UPROPERTY(BlueprintReadWrite) TMap<EHippoAction, float> LearnedActionAffinity;
     UPROPERTY(BlueprintReadWrite) FDateTime LastSaveUtc;
 };

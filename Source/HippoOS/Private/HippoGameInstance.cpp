@@ -1,5 +1,6 @@
 #include "HippoGameInstance.h"
 
+#include "HippoBrainComponent.h"
 #include "HippoCharacter.h"
 #include "HippoSaveGame.h"
 #include "HippoNeedsComponent.h"
@@ -29,6 +30,7 @@ bool UHippoGameInstance::SaveHippo(AHippoCharacter* Hippo)
     if (!Save) return false;
 
     Save->HippoName = Hippo->HippoName;
+    Save->HippoTransform = Hippo->GetActorTransform();
     if (Hippo->Needs) Save->Needs = Hippo->Needs->Needs;
     if (Hippo->Personality)
     {
@@ -40,6 +42,11 @@ bool UHippoGameInstance::SaveHippo(AHippoCharacter* Hippo)
         Save->SessionCount = Hippo->Memory->SessionCount;
         Save->Bond = Hippo->Memory->Bond;
         Save->Interactions = Hippo->Memory->Interactions;
+    }
+    if (Hippo->Brain)
+    {
+        Save->LastAction = Hippo->Brain->CurrentAction;
+        Save->LearnedActionAffinity = Hippo->Brain->LearnedActionAffinity;
     }
 
     Save->LastSaveUtc = FDateTime::UtcNow();
@@ -77,6 +84,11 @@ bool UHippoGameInstance::LoadHippo(AHippoCharacter* Hippo)
 
     Hippo->HippoName = CachedSave->HippoName;
 
+    if (!CachedSave->HippoTransform.Equals(FTransform::Identity))
+    {
+        Hippo->SetActorTransform(CachedSave->HippoTransform, false, nullptr, ETeleportType::TeleportPhysics);
+    }
+
     if (Hippo->Needs)
     {
         Hippo->Needs->Needs = CachedSave->Needs;
@@ -96,6 +108,12 @@ bool UHippoGameInstance::LoadHippo(AHippoCharacter* Hippo)
         Hippo->Memory->Bond = CachedSave->Bond;
         Hippo->Memory->Interactions = CachedSave->Interactions;
         Hippo->Memory->LastSeenUtc = FDateTime::UtcNow();
+    }
+
+    if (Hippo->Brain)
+    {
+        Hippo->Brain->LearnedActionAffinity = CachedSave->LearnedActionAffinity;
+        Hippo->Brain->SetActionOverride(CachedSave->LastAction, 0.75f);
     }
 
     LoadedLastSaveUtc = CachedSave->LastSaveUtc;

@@ -1,4 +1,5 @@
 #include "HippoGameMode.h"
+#include "HippoAdaptiveQualityDirector.h"
 #include "HippoPlayerController.h"
 #include "HippoCameraPawn.h"
 #include "HippoSanctuaryManager.h"
@@ -26,5 +27,6 @@ void AHippoGameMode::BeginPlay()
     if (GetWorld())
     {
         GetWorld()->SpawnActor<AHippoSanctuaryManager>(AHippoSanctuaryManager::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
+        GetWorld()->SpawnActor<AHippoAdaptiveQualityDirector>(AHippoAdaptiveQualityDirector::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator);
     }
 }
