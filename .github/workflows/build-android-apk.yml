@@ -97,7 +97,16 @@ jobs:
           grep -q 'package/unique_name="com.sashin.hippoos"' export_presets.cfg
           grep -q 'version/code=104' export_presets.cfg
           grep -q 'package/unique_name="com.sashin.hippoos.personal.ci"' export_presets.cfg
-          grep -q 'command_line/extra_args="--rendering-method gl_compatibility --rendering-driver opengl3"' export_presets.cfg
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('export_presets.cfg').read_text()
+          start = text.index('name="Android Emulator CI"')
+          end = text.index('[preset.3]', start)
+          emulator = text[start:end]
+          assert 'architectures/x86_64=true' in emulator
+          assert 'command_line/extra_args=""' in emulator
+          assert 'gl_compatibility' not in emulator
+          PY
           bash -n ../.github/scripts/verify-production-release.sh
           bash -n ../.github/scripts/android16-render-proof.sh
           python3 -m py_compile ../.github/scripts/visual-regression-gate.py
@@ -131,24 +140,18 @@ jobs:
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/HippoOS.signature.txt
           grep -qi "$HIPPOOS_TEST_CERT_SHA256" build/HippoOS.signature.txt
           sha256sum "$APK" | tee build/HippoOS.apk.sha256
-      - name: Export x86_64 OpenGL emulator APK
+      - name: Export x86_64 Mobile Vulkan emulator APK
         shell: bash
         working-directory: godot
         run: |
           set -euxo pipefail
-          cp project.godot "$GITHUB_WORKSPACE/build/project.godot.mobile-release"
-          sed -i 's/renderer\/rendering_method="mobile"/renderer\/rendering_method="gl_compatibility"/' project.godot
-          sed -i 's/renderer\/rendering_method.mobile="mobile"/renderer\/rendering_method.mobile="gl_compatibility"/' project.godot
-          sed -i '/renderer\/rendering_method.mobile="gl_compatibility"/a limits/opengl/max_lights_per_object=2\nlimits/opengl/max_renderable_lights=8' project.godot
-          grep -q 'renderer/rendering_method="gl_compatibility"' project.godot
-          grep -q 'limits/opengl/max_lights_per_object=2' project.godot
-          grep -q 'limits/opengl/max_renderable_lights=8' project.godot
+          grep -q 'renderer/rendering_method="mobile"' project.godot
+          grep -q 'renderer/rendering_method.mobile="mobile"' project.godot
           godot --headless --editor --path . --import --quit 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-import-emulator.log"
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-import-emulator.log"
           godot --headless --verbose --path . --export-release "Android Emulator CI" "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/godot-export-emulator.log"
           ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/godot-export-emulator.log"
           test -s "$GITHUB_WORKSPACE/build/HippoOS-Emulator-CI.apk"
-          mv "$GITHUB_WORKSPACE/build/project.godot.mobile-release" project.godot
       - name: Verify x86_64 emulator package
         shell: bash
         run: |
