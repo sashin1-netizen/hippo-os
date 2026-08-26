@@ -3,16 +3,17 @@ extends Node
 # Early OpenGL/Compatibility safety net for Android emulators and low-end fallback
 # devices. It deliberately does nothing on the production Mobile/Vulkan renderer.
 #
-# SwiftShader exposes a very small fragment-uniform budget. Godot's lit spatial
-# material variants can exceed that budget before the later presentation/fallback
-# directors get a chance to hide the production geometry. This autoload therefore
-# watches nodes as they enter the SceneTree and replaces their visible material path
-# with a texture-preserving unshaded StandardMaterial3D before the first useful draw.
+# SwiftShader exposes a small fragment-uniform budget and is also less tolerant of
+# large/complex texture uploads than physical Android GPUs. Godot's lit spatial
+# material variants can exceed the uniform budget before later presentation directors
+# hide production geometry. On x86_64 Compatibility CI we therefore use flat,
+# untextured, unshaded materials. Real ARM64 Mobile/Vulkan phones are untouched.
 
 const RESCAN_INTERVAL := 0.08
 const ACTIVE_SECONDS := 45.0
 
 var active := false
+var software_ci := false
 var elapsed := 0.0
 var rescan_clock := 0.0
 var converted := 0
@@ -22,15 +23,14 @@ func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
     process_priority = -100000
     active = _is_compatibility_renderer()
+    software_ci = active and OS.has_feature("x86_64")
     if not active:
         set_process(false)
         return
 
-    # node_added is emitted synchronously as runtime geometry is inserted, which lets
-    # us harden dynamically constructed meshes before normal frame presentation.
     get_tree().node_added.connect(_on_node_added)
     _harden_tree(get_tree().root)
-    print("HippoOS compatibility shader budget guard active")
+    print("HippoOS compatibility shader budget guard active texture_safe=%s" % str(software_ci))
 
 func _process(delta: float) -> void:
     if not active:
@@ -72,7 +72,6 @@ func _harden_mesh(mesh_instance: MeshInstance3D) -> void:
         return
     _harden_geometry(mesh_instance)
 
-    # Do not repeatedly replace a material already prepared by this guard.
     if mesh_instance.has_meta("hippo_os_compat_safe_material"):
         return
 
@@ -86,9 +85,9 @@ func _harden_mesh(mesh_instance: MeshInstance3D) -> void:
     converted += 1
 
 func _safe_material(source: Material, node_name: String) -> StandardMaterial3D:
-    var key := "fallback"
+    var key := "fallback:%s" % node_name
     if source != null:
-        key = "%s:%d" % [source.resource_path, source.get_instance_id()]
+        key = "%s:%d:%s" % [source.resource_path, source.get_instance_id(), str(software_ci)]
     if safe_material_cache.has(key):
         return safe_material_cache[key] as StandardMaterial3D
 
@@ -97,16 +96,24 @@ func _safe_material(source: Material, node_name: String) -> StandardMaterial3D:
     safe.albedo_color = _fallback_color(node_name)
     safe.roughness = 1.0
     safe.metallic = 0.0
+    safe.cull_mode = BaseMaterial3D.CULL_BACK
+    safe.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 
     if source is BaseMaterial3D:
         var base := source as BaseMaterial3D
-        safe.albedo_color = base.albedo_color
-        safe.albedo_texture = base.albedo_texture
-        safe.uv1_scale = base.uv1_scale
-        safe.uv1_offset = base.uv1_offset
-        safe.texture_filter = base.texture_filter
-        safe.transparency = base.transparency
-        safe.cull_mode = base.cull_mode
+        # Preserve source tint on normal Compatibility hardware. On the x86_64
+        # software renderer, retain only a useful tint and intentionally drop every
+        # texture/sampler-dependent feature so glTexImage2D cannot sink launch proof.
+        if not software_ci:
+            safe.albedo_color = base.albedo_color
+            safe.albedo_texture = base.albedo_texture
+            safe.uv1_scale = base.uv1_scale
+            safe.uv1_offset = base.uv1_offset
+            safe.texture_filter = base.texture_filter
+            safe.transparency = base.transparency
+            safe.cull_mode = base.cull_mode
+        elif base.albedo_color.a > 0.05 and base.albedo_color.get_luminance() < 0.96:
+            safe.albedo_color = base.albedo_color
 
     safe_material_cache[key] = safe
     return safe
