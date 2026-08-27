@@ -1,0 +1,237 @@
+name: Build Honor Android 16 Compatibility APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [polish/4k-lifelike-animals]
+    paths:
+      - 'godot/**'
+      - '.github/test-signing/**'
+      - '.github/scripts/**'
+      - '.github/workflows/build-honor-compat-apk.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hippoos-honor-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  honor-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      KEYSTORE: /home/runner/.android/hippoos-personal.keystore
+      KEY_ALIAS: hippoospersonal
+      KEY_PASS: hippoos-personal
+      EXPECTED_CERT: 3f19983ae8a86f7f7b20fa6be17b69882879c76a747f5d7744a6b063717f1dc2
+      GODOT_TEMPLATE_VERSION: 4.7.2.stable
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android 16 and NDK 29 tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --sdk_root="$ANDROID_HOME" \
+            'platform-tools' \
+            'build-tools;36.1.0' \
+            'platforms;android-36' \
+            'cmdline-tools;latest' \
+            'ndk;29.0.14206865'
+          mkdir -p build "$HOME/.android"
+
+      - name: Install stable Hippo OS signer
+        shell: bash
+        run: |
+          set -euxo pipefail
+          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$KEY_PASS" -alias "$KEY_ALIAS" | tee build/key.txt
+          grep -q '3F:19:98:3A:E8:A8:6F:7F:7B:20:FA:6B:E1:7B:69:88:28:79:C7:6A:74:7F:5D:77:44:A6:B0:63:71:7F:1D:C2' build/key.txt
+
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+
+      - name: Configure Godot Android SDK and assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+
+      - name: Install official Godot Gradle template
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          rm -rf android
+          TEMPLATE="$HOME/.local/share/godot/export_templates/$GODOT_TEMPLATE_VERSION/android_source.zip"
+          test -s "$TEMPLATE"
+          mkdir -p android/build
+          unzip -q "$TEMPLATE" -d android/build
+          printf '%s\n' "$GODOT_TEMPLATE_VERSION" > android/.build_version
+          test -x android/build/gradlew
+
+      - name: Create Honor compatibility preset
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('godot/export_presets.cfg')
+          text = p.read_text(encoding='utf-8')
+          start = text.index('[preset.3]')
+          block = text[start:].split('[preset.4]', 1)[0].rstrip()
+          block = block.replace('[preset.3]', '[preset.7]', 1)
+          block = block.replace('[preset.3.options]', '[preset.7.options]', 1)
+          block = block.replace('name="Android Existing App Update"', 'name="Android Honor Compatibility"', 1)
+          block = block.replace('custom_features="existing_app_update"', 'custom_features="existing_app_update,honor_compat"', 1)
+          block = block.replace('export_path="../build/HippoOS-UPDATE-EXISTING.apk"', 'export_path="../build/HippoOS-HONOR-COMPAT-RAW.apk"', 1)
+          block = block.replace('gradle_build/compress_native_libraries=false', 'gradle_build/compress_native_libraries=true', 1)
+          block = block.replace('version/code=104', 'version/code=106', 1)
+          block = block.replace('version/name="0.2.6-package-fix"', 'version/name="0.2.7-honor-compat"', 1)
+          p.write_text(text.rstrip() + '\n\n' + block + '\n', encoding='utf-8')
+          PY
+          grep -q '^name="Android Honor Compatibility"$' godot/export_presets.cfg
+          grep -q 'gradle_build/compress_native_libraries=true' godot/export_presets.cfg
+          grep -q 'version/code=106' godot/export_presets.cfg
+
+      - name: Validate Godot runtime
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --editor --path . --import --quit 2>&1 | tee ../build/import.log
+          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|SHADER ERROR:|Shader compilation failed' ../build/import.log
+
+      - name: Export compressed ARM64 APK through Gradle
+        shell: bash
+        working-directory: godot
+        run: |
+          set -euxo pipefail
+          godot --headless --verbose --path . --export-release 'Android Honor Compatibility' "$GITHUB_WORKSPACE/build/HippoOS-HONOR-COMPAT-RAW.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/export.log"
+          test -s "$GITHUB_WORKSPACE/build/HippoOS-HONOR-COMPAT-RAW.apk"
+          ! grep -Eiq 'Starting legacy build system|SCRIPT ERROR:|Parse Error:|SHADER ERROR:|Shader compilation failed' "$GITHUB_WORKSPACE/build/export.log"
+
+      - name: Re-align and explicitly sign v1 v2 v3
+        shell: bash
+        run: |
+          set -euxo pipefail
+          RAW=build/HippoOS-HONOR-COMPAT-RAW.apk
+          ALIGNED=build/HippoOS-HONOR-COMPAT-ALIGNED.apk
+          FINAL=build/HippoOS-v0.2.7-HONOR-COMPAT.apk
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -f -v 4 "$RAW" "$ALIGNED"
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEY_PASS" \
+            --key-pass "pass:$KEY_PASS" \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$FINAL" "$ALIGNED"
+          rm -f "$ALIGNED"
+          test -s "$FINAL"
+
+      - name: Verify OEM compatibility package
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK=build/HippoOS-v0.2.7-HONOR-COMPAT.apk
+          APKANALYZER="$(command -v apkanalyzer || find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          test "$("$APKANALYZER" manifest application-id "$APK")" = 'com.sashin.hippoos'
+          test "$("$APKANALYZER" manifest target-sdk "$APK")" = '36'
+          test "$("$APKANALYZER" manifest version-code "$APK")" = '106'
+          unzip -t "$APK" | tee build/unzip-test.txt
+          unzip -l "$APK" | tee build/contents.txt
+          grep -q 'lib/arm64-v8a/libgodot_android.so' build/contents.txt
+          ! grep -q 'lib/x86_64/libgodot_android.so' build/contents.txt
+          python3 - "$APK" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as zf:
+              libs=[i for i in zf.infolist() if i.filename.endswith('.so')]
+              assert libs, 'No native libraries found'
+              compressed=[i for i in libs if i.compress_type != zipfile.ZIP_STORED]
+              print(f'native libraries={len(libs)}, compressed={len(compressed)}')
+              assert compressed, 'Honor compatibility APK did not compress native libraries'
+          PY
+          rm -rf build/elfcheck && mkdir -p build/elfcheck
+          unzip -q "$APK" 'lib/arm64-v8a/*.so' -d build/elfcheck
+          READELF="$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          for so in build/elfcheck/lib/arm64-v8a/*.so; do
+            "$READELF" -lW "$so" | tee -a build/elf-alignment.txt
+            python3 - "$READELF" "$so" <<'PY'
+          import re, subprocess, sys
+          out=subprocess.check_output([sys.argv[1], '-lW', sys.argv[2]], text=True)
+          aligns=[]
+          for line in out.splitlines():
+              if line.strip().startswith('LOAD'):
+                  m=re.search(r'0x([0-9a-fA-F]+)\s*$', line)
+                  if m: aligns.append(int(m.group(1),16))
+          assert aligns, f'No LOAD segments found in {sys.argv[2]}'
+          assert all(a >= 0x4000 for a in aligns), f'ELF LOAD alignment below 16 KB: {aligns}'
+          print(sys.argv[2], 'ELF 16KB aligned', aligns)
+          PY
+          done
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/signature.txt
+          grep -q 'Verified using v1 scheme (JAR signing): true' build/signature.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' build/signature.txt
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' build/signature.txt
+          grep -qi "$EXPECTED_CERT" build/signature.txt
+          sha256sum "$APK" | tee build/HippoOS-v0.2.7-HONOR-COMPAT.sha256
+          ls -lh "$APK"
+
+      - name: Upload Honor-compatible APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-v0.2.7-HONOR-COMPAT-APK
+          path: |
+            build/HippoOS-v0.2.7-HONOR-COMPAT.apk
+            build/HippoOS-v0.2.7-HONOR-COMPAT.sha256
+            build/signature.txt
+            build/elf-alignment.txt
+            build/unzip-test.txt
+            build/contents.txt
+            build/import.log
+            build/export.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish direct-download Honor compatibility APK
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: hippo-os-honor-compat-v0.2.7
+        run: |
+          set -euxo pipefail
+          APK=build/HippoOS-v0.2.7-HONOR-COMPAT.apk
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#HippoOS-v0.2.7-HONOR-COMPAT.apk" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$APK#HippoOS-v0.2.7-HONOR-COMPAT.apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title 'Hippo OS v0.2.7 Honor Android 16 Compatibility APK' \
+              --notes 'ARM64-only Android 16 compatibility build. Gradle packaging with compressed native libraries, explicit v1/v2/v3 APK signatures, stable Hippo OS signer, native ELF 16 KB alignment verification and direct APK publication.' \
+              --prerelease

@@ -1,0 +1,51 @@
+name: Physical Android 16 Release Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_artifact_run_id:
+        description: 'Workflow run ID containing HippoOS-Personal-Release-APK'
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  certify-exact-apk:
+    name: Exact APK physical Android 16 certification
+    # This job is intentionally bound to a real-device runner. Emulator graphics are not release authority.
+    runs-on: [self-hosted, android, android16, physical]
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download exact CI candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: HippoOS-Personal-Release-APK
+          path: candidate
+          run-id: ${{ inputs.apk_artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify required artifact pair
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -s candidate/HippoOS-Personal.apk
+          test -s candidate/HippoOS.apk.sha256
+          sha256sum candidate/HippoOS-Personal.apk
+          test "$(sha256sum candidate/HippoOS-Personal.apk | awk '{print $1}')" = "$(awk '{print $1}' candidate/HippoOS.apk.sha256)"
+      - name: Install visual-regression dependency
+        shell: bash
+        run: python3 -m pip install --user pillow
+      - name: Certify exact APK on physical Android 16 hardware
+        shell: bash
+        run: bash .github/scripts/physical-android16-certification.sh candidate/HippoOS-Personal.apk candidate/HippoOS.apk.sha256 device-certification
+      - name: Upload physical-device evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Physical-Android16-Certification
+          path: device-certification/
+          if-no-files-found: error
+          retention-days: 90

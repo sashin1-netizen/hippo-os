@@ -1,0 +1,148 @@
+name: Hippo OS Code Health
+
+on:
+  push:
+    branches: [main, polish/4k-lifelike-animals]
+    paths:
+      - 'godot/**'
+      - '.github/**'
+      - 'Docs/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - '.github/**'
+      - 'Docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hippoos-code-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-health:
+    name: Static code and workflow health
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          lfs: false
+
+      - name: Install deterministic linters
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          python3 -m pip install --disable-pip-version-check --quiet pyyaml
+
+      - name: Validate shell scripts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mapfile -d '' scripts < <(find .github/scripts -type f -name '*.sh' -print0 | sort -z)
+          test "${#scripts[@]}" -gt 0
+          for script in "${scripts[@]}"; do
+            bash -n "$script"
+            shellcheck -S error "$script"
+          done
+
+      - name: Validate Python tooling
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mapfile -d '' files < <(find .github -type f -name '*.py' -print0 | sort -z)
+          if [ "${#files[@]}" -gt 0 ]; then
+            python3 -m py_compile "${files[@]}"
+          fi
+
+      - name: Validate workflow YAML
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          workflows = sorted(Path('.github/workflows').glob('*.y*ml'))
+          if not workflows:
+              raise SystemExit('No workflows found')
+          for path in workflows:
+              with path.open('r', encoding='utf-8') as fh:
+                  data = yaml.safe_load(fh)
+              if not isinstance(data, dict):
+                  raise SystemExit(f'{path}: workflow must be a mapping')
+              if 'jobs' not in data:
+                  raise SystemExit(f'{path}: missing jobs')
+              print(f'validated {path}')
+          PY
+
+      - name: Validate structured project files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 -m json.tool .github/visual/grasslands-reference-profile.json >/dev/null
+          grep -q '^\[application\]' godot/project.godot
+          grep -q '^\[rendering\]' godot/project.godot
+          grep -q '^\[preset\.0\]' godot/export_presets.cfg
+          grep -Fq 'Godot 4.7.x project under `godot/` is the only authoritative Android release runtime' Docs/RELEASE_RUNTIME.md
+
+      - name: Reject dangerous CI patterns
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if grep -RniE '^\s*pull_request_target\s*:' .github/workflows; then
+            echo 'pull_request_target is forbidden in Hippo OS release workflows.' >&2
+            exit 1
+          fi
+          if grep -RniE '^\s*permissions\s*:\s*write-all\s*$' .github/workflows; then
+            echo 'write-all workflow permissions are forbidden.' >&2
+            exit 1
+          fi
+
+          write_hits="$(grep -RniE '^\s*contents\s*:\s*write\s*$' .github/workflows || true)"
+          if [ -n "$write_hits" ]; then
+            printf '%s\n' "$write_hits"
+            unexpected="$(printf '%s\n' "$write_hits" | grep -v '^.github/workflows/build-existing-app-update-v026.yml:' || true)"
+            if [ -n "$unexpected" ]; then
+              echo 'Unexpected repository-writing CI permission detected.' >&2
+              printf '%s\n' "$unexpected" >&2
+              exit 1
+            fi
+            grep -Fq "if: github.event_name == 'push'" .github/workflows/build-existing-app-update-v026.yml
+            grep -Fq 'gh release' .github/workflows/build-existing-app-update-v026.yml
+          fi
+
+          ! grep -RniE 'curl[^|]*\|\s*(ba)?sh|wget[^|]*\|\s*(ba)?sh' .github/workflows .github/scripts
+
+      - name: Reject merge debris and accidental secrets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ! grep -RniE '^(<<<<<<<|=======|>>>>>>>)' godot .github Docs --include='*.gd' --include='*.py' --include='*.sh' --include='*.yml' --include='*.yaml' --include='*.md'
+          ! grep -RniE '(ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)' godot .github Docs --exclude='*.b64'
+
+      - name: Check whitespace in source and CI files
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git diff --check HEAD^ HEAD || true
+          if grep -RIn $'\r$' godot .github Docs --include='*.gd' --include='*.py' --include='*.sh' --include='*.yml' --include='*.yaml' --include='*.md'; then
+            echo 'CRLF detected in source/CI text files.' >&2
+            exit 1
+          fi
+
+      - name: Validate architecture contract
+        shell: bash
+        run: bash .github/scripts/verify-architecture-contract.sh "$GITHUB_WORKSPACE"
+
+      - name: Code health summary
+        shell: bash
+        run: |
+          echo 'HIPPO OS CODE HEALTH: GREEN'
+          echo 'Authoritative runtime: Godot Android open-world build.'

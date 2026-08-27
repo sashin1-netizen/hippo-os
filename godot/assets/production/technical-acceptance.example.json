@@ -1,0 +1,24 @@
+{
+  "gate_order": [
+    "repository_quality",
+    "godot_import",
+    "arm64_apk",
+    "x86_emulator_apk",
+    "android16_authoritative_frame",
+    "apk_sha256",
+    "existing_app_update",
+    "physical_android_install_smoke"
+  ],
+  "source_commit_sha": "REPLACE_WITH_40_CHAR_COMMIT_SHA",
+  "apk_sha256": "REPLACE_WITH_64_CHAR_SHA256",
+  "visual_reference_id": "grasslands-sanctuary-v1",
+  "visual_regression_score": 0,
+  "repository_quality_passes": false,
+  "godot_import_passes": false,
+  "arm64_apk_passes": false,
+  "x86_emulator_apk_passes": false,
+  "android16_authoritative_frame_passes": false,
+  "apk_sha256_verified": false,
+  "existing_app_update_passes": false,
+  "physical_android_install_smoke_passes": false
+}

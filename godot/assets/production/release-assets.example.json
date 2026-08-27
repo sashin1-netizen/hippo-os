@@ -2,6 +2,8 @@
   "models": {
     "hippo": {
       "file": "assets/animals/mochi.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",
@@ -10,11 +12,14 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     },
     "pig": {
       "file": "assets/animals/porky.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",
@@ -23,11 +28,14 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     },
     "dog": {
       "file": "assets/animals/bao.glb",
+      "asset_tier": "production",
+      "development_fallback": false,
       "source": "REQUIRED",
       "artist_or_vendor": "REQUIRED",
       "license": "REQUIRED",
@@ -36,6 +44,7 @@
       "sha256": "REQUIRED",
       "triangles": 0,
       "rigged": false,
+      "texture_source_px": 0,
       "textures": {"base_color": "", "normal": "", "roughness": ""},
       "animations": ["idle", "walk", "run", "turn", "sleep", "wake", "eat", "drink", "play", "pet", "call"]
     }

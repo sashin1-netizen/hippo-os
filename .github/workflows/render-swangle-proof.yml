@@ -1,0 +1,104 @@
+name: Android 16 Swangle Visual Proof
+
+on:
+  push:
+    branches:
+      - polish/4k-lifelike-animals
+    paths:
+      - .github/workflows/render-swangle-proof.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  render-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - name: Download validated emulator APK from current build
+        uses: actions/download-artifact@v4
+        with:
+          name: HippoOS-Emulator-CI-APK
+          path: apk
+          repository: sashin1-netizen/hippo-os
+          run-id: 32792493975
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install screenshot validator
+        run: python3 -m pip install --user pillow
+
+      - name: Enable KVM access
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Launch exact APK on Android 16 with Swangle and prove visible frame
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swangle -no-snapshot -noaudio -no-boot-anim
+          script: |
+            set -eu
+            adb wait-for-device
+            adb shell getprop ro.build.version.release | grep -q '^16$'
+            adb shell getprop ro.build.version.sdk | grep -q '^36$'
+            adb install -r apk/HippoOS-Emulator-CI.apk | tee apk/swangle-install.txt
+            grep -q '^Success$' apk/swangle-install.txt
+            adb shell settings put secure immersive_mode_confirmations confirmed || true
+            adb logcat -c
+            adb shell monkey -p com.sashin.hippoos.personal.ci -c android.intent.category.LAUNCHER 1
+
+            visible=0
+            for attempt in $(seq 1 18); do
+              sleep 5
+              adb shell pidof com.sashin.hippoos.personal.ci > apk/swangle-pid.txt
+              test -s apk/swangle-pid.txt
+              adb logcat -d --pid=$(cat apk/swangle-pid.txt) > apk/swangle-app-logcat.txt
+              ! grep -Eiq 'Program linking failed|GL_MAX_FRAGMENT_UNIFORM_VECTORS|SHADER ERROR:|Shader compilation failed|SCRIPT ERROR:|Parse Error:|FATAL EXCEPTION' apk/swangle-app-logcat.txt
+              adb exec-out screencap -p > apk/swangle-attempt.png
+              test -s apk/swangle-attempt.png
+
+              if python3 - <<'PY'
+            from PIL import Image, ImageStat
+            image = Image.open('apk/swangle-attempt.png').convert('RGB')
+            stat = ImageStat.Stat(image)
+            extrema = image.getextrema()
+            spread = max(high - low for low, high in extrema)
+            deviation = max(stat.stddev)
+            mean = sum(stat.mean) / 3.0
+            print(f'visual-proof mean={mean:.2f} max_stddev={deviation:.2f} spread={spread}')
+            if deviation < 8.0 or spread < 30 or mean < 8.0:
+                raise SystemExit(1)
+            PY
+              then
+                cp apk/swangle-attempt.png apk/swangle-launch.png
+                visible=1
+                echo "Visible Hippo OS frame proven on attempt ${attempt}."
+                break
+              fi
+            done
+
+            test "$visible" -eq 1
+            echo "Swangle launch screenshot bytes: $(stat -c%s apk/swangle-launch.png)"
+            test "$(stat -c%s apk/swangle-launch.png)" -ge 30000
+
+      - name: Upload visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-Android16-Swangle-Visual-Proof
+          path: |
+            apk/swangle-install.txt
+            apk/swangle-pid.txt
+            apk/swangle-app-logcat.txt
+            apk/swangle-launch.png
+            apk/swangle-attempt.png
+          if-no-files-found: warn
+          retention-days: 30

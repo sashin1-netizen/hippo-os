@@ -2,7 +2,7 @@ name: Repository Quality
 
 on:
   push:
-    branches: [main]
+    branches: [main, polish/4k-lifelike-animals]
   pull_request:
     branches: [main]
 
@@ -18,33 +18,40 @@ jobs:
         with:
           lfs: false
 
-      - name: Validate required project files
+      - name: Validate authoritative Godot repository roots
         shell: bash
         run: |
           set -euo pipefail
-          test -f HippoOS.uproject
-          test -f Source/HippoOS/HippoOS.Build.cs
-          test -f Source/HippoOS/HippoOS.cpp
-          test -f Config/DefaultGame.ini
+          test -f godot/project.godot
+          test -f godot/main.tscn
+          test -f godot/export_presets.cfg
+          test -f Docs/RELEASE_RUNTIME.md
           test -f .gitattributes
           test -f .gitignore
 
-      - name: Validate project JSON
-        run: python -m json.tool HippoOS.uproject >/dev/null
-
-      - name: Reject generated Unreal directories
+      - name: Validate Godot project structure
         shell: bash
         run: |
           set -euo pipefail
-          for dir in Binaries DerivedDataCache Intermediate Saved; do
+          grep -q '^\[application\]' godot/project.godot
+          grep -q '^\[rendering\]' godot/project.godot
+          grep -q '^\[preset\.0\]' godot/export_presets.cfg
+
+      - name: Reject generated Godot directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in godot/.godot godot/build godot/bin; do
             if git ls-files "$dir" "$dir/**" | grep -q .; then
-              echo "Generated Unreal directory is tracked: $dir"
+              echo "Generated Godot directory is tracked: $dir"
               exit 1
             fi
           done
 
-      - name: Check Unreal assets are configured for LFS
+      - name: Validate Hippo OS architecture contract
         shell: bash
-        run: |
-          grep -q '^\*.uasset filter=lfs' .gitattributes
-          grep -q '^\*.umap filter=lfs' .gitattributes
+        run: bash .github/scripts/verify-architecture-contract.sh "$GITHUB_WORKSPACE"
+
+      - name: Validate Hippo OS gameplay candidate contract
+        shell: bash
+        run: bash .github/scripts/verify-gameplay-candidate.sh "$GITHUB_WORKSPACE"

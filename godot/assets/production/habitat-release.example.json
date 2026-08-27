@@ -1,6 +1,6 @@
 {
-  "ground": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
-  "water": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
-  "rocks": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"},
-  "vegetation": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED"}
+  "ground": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED", "texture_source_px": 0},
+  "water": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED", "texture_source_px": 0},
+  "rocks": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED", "texture_source_px": 0},
+  "vegetation": {"production_ready": false, "source": "REQUIRED", "license": "REQUIRED", "texture_source_px": 0}
 }

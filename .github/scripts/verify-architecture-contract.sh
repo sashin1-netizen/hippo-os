@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${1:-.}"
+cd "$ROOT"
+
+fail() {
+  echo "Architecture contract failed: $*" >&2
+  exit 1
+}
+
+require_file() {
+  test -s "$1" || fail "missing required file $1"
+}
+
+require_text() {
+  grep -Fq "$2" "$1" || fail "$1 is missing required contract: $2"
+}
+
+require_file Docs/ARCHITECTURE.md
+require_file Docs/CODING_STANDARDS.md
+require_file Docs/RELEASE_RUNTIME.md
+require_file godot/project.godot
+require_file godot/scripts/main.gd
+require_file godot/scripts/companion_roster.gd
+require_file godot/scripts/gameplay_director.gd
+require_file godot/scripts/sanctuary_hud.gd
+require_file godot/scripts/hero_camera_director.gd
+require_file godot/scripts/production_asset_loader.gd
+require_file godot/scripts/final_presentation_director.gd
+require_file godot/scripts/offline_persistence.gd
+require_file .github/scripts/android16-install-proof.sh
+require_file .github/scripts/physical-android16-certification.sh
+require_file .github/workflows/physical-android16-certification.yml
+
+require_text Docs/ARCHITECTURE.md 'Hippo OS is a portrait-first, offline-first Android companion application built in Godot 4.7.'
+require_text Docs/ARCHITECTURE.md 'FinalPresentationDirector'
+require_text Docs/ARCHITECTURE.md 'Unidirectional interaction flow'
+require_text Docs/ARCHITECTURE.md 'Offline-first data model'
+require_text Docs/RELEASE_RUNTIME.md 'Godot 4.7.x project under `godot/` is the only authoritative Android release runtime'
+require_text Docs/RELEASE_RUNTIME.md 'exact ARM64 APK SHA-256'
+if grep -Eq 'AHippoCharacter|UHippoNeedsComponent|AHippoAIController|AHippoPlayerController' Docs/ARCHITECTURE.md; then
+  fail 'ARCHITECTURE.md has regressed to the obsolete Unreal runtime model'
+fi
+
+for service in GameplayDirector SanctuaryHUD HeroCameraDirector ProductionAssetLoader FinalPresentationDirector OfflinePersistence; do
+  count="$(grep -Ec "^${service}=" godot/project.godot || true)"
+  [[ "$count" == "1" ]] || fail "$service must appear exactly once as an autoload (found $count)"
+done
+
+for legacy in \
+  AtmospherePolish VisualSanctuaryPolish AnimalArtPolish PremiumExperience \
+  LifelikeRendering CinematicQuality PhoneVisualHotfix ProductionQualityPass \
+  PresentationCleanup ReferenceFidelityFinish OpenWorldReferenceFinish \
+  EarlyReferenceGate CommunityShowcaseAuthority; do
+  if grep -q "^${legacy}=" godot/project.godot; then
+    fail "legacy presentation authority is active: ${legacy}"
+  fi
+done
+
+require_text godot/scripts/main.gd 'const SAVE_PATH = "user://hippo_save.json"'
+require_text godot/scripts/companion_roster.gd 'const SAVE_PATH = "user://companion_roster.json"'
+require_text godot/scripts/app_completeness.gd 'const SAVE_PATH := "user://hippo_app_features.json"'
+require_text godot/scripts/offline_persistence.gd 'const STORE_PATH := "user://hippo_offline_state.json"'
+require_text godot/scripts/offline_persistence.gd 'const SCHEMA_VERSION := 1'
+require_text godot/scripts/offline_persistence.gd 'func get_pending_sync_events() -> Array:'
+require_text godot/scripts/offline_persistence.gd 'func acknowledge_sync_event(event_id: String) -> bool:'
+require_text godot/scripts/offline_persistence.gd 'func _write_json_atomic(path: String, payload: Dictionary) -> bool:'
+
+require_text godot/scripts/final_presentation_director.gd '_authoritative_animals_ready()'
+require_text godot/scripts/final_presentation_director.gd '_authoritative_world_ready()'
+require_text godot/scripts/final_presentation_director.gd '_camera_frames_hero()'
+require_text godot/scripts/final_presentation_director.gd 'HippoOS community showcase ready'
+require_text .github/scripts/physical-android16-certification.sh 'status=DEVICE_CERTIFIED'
+require_text .github/scripts/physical-android16-certification.sh 'visual-regression-gate.py'
+require_text .github/scripts/physical-android16-certification.sh 'apk_sha256'
+
+require_text godot/scripts/hero_camera_director.gd 'camera.global_position = camera.global_position.lerp'
+require_text godot/scripts/final_presentation_director.gd '_quarantine_legacy_builders'
+
+if grep -Eq 'user://(hippo_save|companion_roster)\.json' godot/scripts/sanctuary_hud.gd; then
+  fail 'SanctuaryHUD must not directly own core companion persistence'
+fi
+
+for model in mochi.glb porky.glb bao.glb; do
+  require_text godot/scripts/production_asset_loader.gd "$model"
+done
+
+if grep -Eq 'HTTPRequest\.new\(\)|WebSocketPeer\.new\(\)' godot/scripts/main.gd godot/scripts/companion_roster.gd godot/scripts/sanctuary_hud.gd; then
+  fail 'core domain/UI directly creates network clients; move connectivity behind an infrastructure boundary'
+fi
+
+# Release workflows must not treat the legacy Unreal tree as an alternative ship path.
+if grep -RniE 'HippoOS\.uproject|RunUAT|UnrealBuildTool|working-directory:[[:space:]]*(Source|Config)' .github/workflows --include='*.yml' --include='*.yaml'; then
+  fail 'a GitHub release workflow references the non-authoritative Unreal runtime'
+fi
+
+echo 'Architecture contract: PASS'

@@ -1,0 +1,274 @@
+name: Hippo OS Full CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, polish/4k-lifelike-animals]
+    paths:
+      - 'godot/**'
+      - 'Docs/RELEASE_RUNTIME.md'
+      - '.github/scripts/**'
+      - '.github/visual/**'
+      - '.github/workflows/**'
+      - '.github/test-signing/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'godot/**'
+      - 'Docs/RELEASE_RUNTIME.md'
+      - '.github/scripts/**'
+      - '.github/visual/**'
+      - '.github/workflows/**'
+      - '.github/test-signing/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hippoos-full-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /home/runner/.android/hippoos-personal.keystore
+  GODOT_ANDROID_KEYSTORE_RELEASE_USER: hippoospersonal
+  GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: hippoos-personal
+
+jobs:
+  architecture-contract:
+    name: Architecture and repository contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+      - name: Validate critical runtime architecture
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f Docs/RELEASE_RUNTIME.md
+          grep -Fq 'Godot 4.7.x project under `godot/` is the only authoritative Android release runtime' Docs/RELEASE_RUNTIME.md
+          test -f godot/project.godot
+          test -f godot/scripts/voice_command_director.gd
+          test -f godot/scripts/animal_mind_director.gd
+          test -f godot/scripts/offline_persistence.gd
+          test -f godot/scripts/open_world_runtime.gd
+          test -f godot/scripts/gameplay_director.gd
+          test -f godot/scripts/audio_director.gd
+          test -f godot/scripts/final_presentation_director.gd
+          test -f .github/scripts/android16-install-proof.sh
+          test -f .github/scripts/physical-android16-certification.sh
+          test -f .github/scripts/visual-regression-gate.py
+          grep -Fq 'VoiceCommandDirector="*res://scripts/voice_command_director.gd"' godot/project.godot
+          grep -Fq 'AnimalMindDirector="*res://scripts/animal_mind_director.gd"' godot/project.godot
+          grep -Fq 'OfflinePersistence="*res://scripts/offline_persistence.gd"' godot/project.godot
+          grep -Fq 'OpenWorldRuntime="*res://scripts/open_world_runtime.gd"' godot/project.godot
+          grep -q 'renderer/rendering_method="mobile"' godot/project.godot
+          grep -q 'rendering_device/fallback_to_opengl3=true' godot/project.godot
+          grep -q 'package/unique_name="com.sashin.hippoos"' godot/export_presets.cfg
+          bash .github/scripts/verify-architecture-contract.sh
+          bash -n .github/scripts/android16-install-proof.sh
+          bash -n .github/scripts/physical-android16-certification.sh
+          bash -n .github/scripts/fetch-audio-assets.sh
+          python3 -m py_compile .github/scripts/visual-regression-gate.py
+          python3 -m json.tool .github/visual/grasslands-reference-profile.json >/dev/null
+      - name: Reject unsafe release shortcuts
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ! grep -RniE 'skip.*visual|disable.*quality|bypass.*gate' .github godot/scripts --exclude='full-ci.yml'
+
+  godot-smoke:
+    name: Godot 4.7.2 import and smoke
+    needs: architecture-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v5
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+      - name: Fetch verified runtime assets
+        run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+      - name: Import project
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p ../build/full-ci
+          godot --headless --editor --path . --import --quit 2>&1 | tee ../build/full-ci/godot-import.log
+          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/full-ci/godot-import.log
+      - name: Run headless gameplay smoke
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          godot --headless --path . --quit-after 5 2>&1 | tee ../build/full-ci/godot-smoke.log
+          ! grep -Eiq 'SCRIPT ERROR:|Parse Error:|Failed to load script|Failed to instantiate an autoload|SHADER ERROR:|Shader compilation failed' ../build/full-ci/godot-smoke.log
+      - name: Upload smoke evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-FullCI-Godot-Smoke
+          path: build/full-ci/
+          retention-days: 14
+
+  android-build:
+    name: Android 16 ARM64 package
+    needs: godot-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 16 toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;36.1.0' 'platforms;android-36' 'cmdline-tools;latest' 'cmake;3.10.2.4988404' 'ndk;29.0.14206865'
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+      - name: Configure Godot Android SDK
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.config/godot" "$HOME/.android" build/full-ci
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
+      - name: Fetch verified runtime assets
+        run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+      - name: Export ARM64 phone APK
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          godot --headless --editor --path . --import --quit
+          godot --headless --verbose --path . --export-release Android "$GITHUB_WORKSPACE/build/full-ci/HippoOS-Personal.apk" 2>&1 | tee "$GITHUB_WORKSPACE/build/full-ci/android-export.log"
+          test -s "$GITHUB_WORKSPACE/build/full-ci/HippoOS-Personal.apk"
+      - name: Verify Android package contract
+        shell: bash
+        run: |
+          set -euxo pipefail
+          APK=build/full-ci/HippoOS-Personal.apk
+          APKANALYZER="$(command -v apkanalyzer || true)"
+          if [ -z "$APKANALYZER" ]; then
+            APKANALYZER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/apkanalyzer' | sort -V | tail -n 1)"
+          fi
+          test -n "$APKANALYZER"
+          test -x "$APKANALYZER"
+          APP_ID="$("$APKANALYZER" manifest application-id "$APK")"
+          TARGET_SDK="$("$APKANALYZER" manifest target-sdk "$APK")"
+          printf "applicationId=%s\ntargetSdk=%s\n" "$APP_ID" "$TARGET_SDK" | tee build/full-ci/package-contract.txt
+          test "$APP_ID" = 'com.sashin.hippoos'
+          test "$TARGET_SDK" = '36'
+          unzip -l "$APK" | tee build/full-ci/contents.txt
+          grep -q 'lib/arm64-v8a/libgodot_android.so' build/full-ci/contents.txt
+          ! grep -q 'lib/x86_64/libgodot_android.so' build/full-ci/contents.txt
+          "$ANDROID_HOME/build-tools/36.1.0/zipalign" -c -P 16 -v 4 "$APK" | tee build/full-ci/zipalign.txt
+          "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose --print-certs "$APK" | tee build/full-ci/signature.txt
+          sha256sum "$APK" | tee build/full-ci/HippoOS-Personal.apk.sha256
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-FullCI-ARM64-APK
+          path: build/full-ci/
+          retention-days: 30
+
+  android16-install-lifecycle:
+    name: Android 16 install and cold-launch lifecycle proof
+    needs: godot-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android toolchain
+        shell: bash
+        run: |
+          set -euxo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --sdk_root="$ANDROID_HOME" 'platform-tools' 'build-tools;36.1.0' 'platforms;android-36'
+      - uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.7.2
+          use-dotnet: false
+          include-templates: true
+      - name: Configure emulator build
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.config/godot" "$HOME/.android" apk
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+          base64 -d .github/test-signing/hippoos-personal-debug.keystore.b64 > "$GODOT_ANDROID_KEYSTORE_RELEASE_PATH"
+      - name: Fetch verified runtime assets
+        run: bash .github/scripts/fetch-audio-assets.sh "$GITHUB_WORKSPACE"
+      - name: Export x86_64 emulator APK
+        working-directory: godot
+        shell: bash
+        run: |
+          set -euxo pipefail
+          godot --headless --editor --path . --import --quit
+          godot --headless --verbose --path . --export-release 'Android Emulator CI' "$GITHUB_WORKSPACE/apk/HippoOS-Emulator-CI.apk"
+          test -s "$GITHUB_WORKSPACE/apk/HippoOS-Emulator-CI.apk"
+      - name: Enable KVM access
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Run Android 16 install and lifecycle proof
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -no-metrics
+          script: bash .github/scripts/android16-install-proof.sh
+      - name: Upload Android 16 lifecycle evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HippoOS-FullCI-Android16-Install-Proof
+          path: apk/
+          if-no-files-found: warn
+          retention-days: 30
+
+  release-gate:
+    name: Full CI candidate gate
+    needs: [architecture-contract, godot-smoke, android-build, android16-install-lifecycle]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every CI candidate gate green
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test '${{ needs.architecture-contract.result }}' = 'success'
+          test '${{ needs.godot-smoke.result }}' = 'success'
+          test '${{ needs.android-build.result }}' = 'success'
+          test '${{ needs.android16-install-lifecycle.result }}' = 'success'
+          echo 'HIPPO OS CI-READY CANDIDATE: GREEN'
+          echo 'Physical Android 16 device certification of this exact APK SHA-256 is still required before declaring DEVICE_CERTIFIED.'
